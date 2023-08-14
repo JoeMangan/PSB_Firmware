@@ -171,9 +171,16 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  i2c_tx_buffer[0] = 0xA5;
+  i2c_tx_buffer[1] = 0xB6;
 
-  slv_i2C_clear_buffer(i2c_tx_buffer, TXBUFFERSIZE);
+  slv_i2C_clear_buffer(&i2c_tx_buffer[0], TXBUFFERSIZE);
 
+  i2c_rx_buffer[0] = 0x85;
+  i2c_rx_buffer[1] = 0x86;
+  i2c_rx_buffer[2] = 0x87;
+
+  slv_i2C_clear_buffer(&i2c_rx_buffer[0], RXBUFFERSIZE);
 
 
   //HAL_I2C_MspInit();
@@ -701,7 +708,7 @@ void slv_i2C_clear_buffer(uint8_t* buffer, uint8_t size)
 
 	uint8_t idx = 0; // An index
 
-	for(idx = 0; i < size; i++)
+	for(idx = 0; idx < size; idx++)
 	{
 		// Cycle through and clear the buffer array
 		*buffer = 0x00;
