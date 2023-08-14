@@ -27,26 +27,36 @@
 #include "stdlib.h"
 /* USER CODE END Includes */
 
+
+
+
+
+
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+//------------------------------
+// I2C Master
+//------------------------------
 __IO uint32_t     Transfer_Direction = 0;
 __IO uint32_t     Xfer_Complete = 0;
+//------------------------------
 HAL_StatusTypeDef status;
-
 /* USER CODE END PTD */
+
+
+
+
+
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-
-
 // I2C related definitions
 //------------------------------
 // I2C Slave
 //------------------------------
 #define COUNTOF(__BUFFER__)   (sizeof(__BUFFER__) / sizeof(*(__BUFFER__)))
-#define TXBUFFERSIZE                      4//(COUNTOF(aTxBuffer))   // Size of Tx buffer
-#define RXBUFFERSIZE                      1//TXBUFFERSIZE 			// Size of Rx buffer
+#define TXBUFFERSIZE                      2//(COUNTOF(aTxBuffer))   // Size of Tx buffer
+#define RXBUFFERSIZE                      3//TXBUFFERSIZE 			// Size of Rx buffer
 // I2C Master
 //------------------------------
 #define I2C_TIMEOUT_DURATION 10 // Not sure of the units of this - could be ms
@@ -54,30 +64,41 @@ HAL_StatusTypeDef status;
 #define I2C_TX_MAX_ATTEMPTS 5
 #define I2C_RX_ATTEMPT_PERIOD 100 // ms
 #define I2C_RX_MAX_ATTEMPTS 5
-uint8_t aTxBuffer[TXBUFFERSIZE];				// Transmit buffer
+uint8_t i2c_tx_buffer[TXBUFFERSIZE];				// Transmit buffer
 uint8_t aRxBuffer[RXBUFFERSIZE];				// Recieve buffer
-
+//------------------------------
 // Deleteme
 #define INCREMENT_DELAY 500
 #define PAUSE_DELAY 1000
-
 /* USER CODE END PD */
+
+
+
+
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
 /* USER CODE END PM */
+
+
+
+
+
+
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
 I2C_HandleTypeDef hi2c3;
-
 UART_HandleTypeDef huart2;
-
 /* USER CODE BEGIN PV */
-
 /* USER CODE END PV */
+
+
+
+
+
+
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -87,37 +108,52 @@ static void MX_I2C3_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
-
-
 // Function prototypes
+// -------------------------
+// GPIO and Board Enables
+// -------------------------
 void ht_enable_on(void);
 void ht_enable_off(void);
-
 void cea_enable_on(void);
 void cea_enable_off(void);
+void ucd_enable_on(void);
+void ucd_enable_off(void);
+// I2C Slave Stuff
+// -------------------------
+HAL_StatusTypeDef ucd_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
 HAL_StatusTypeDef cea_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
 HAL_StatusTypeDef cea_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX);
 HAL_StatusTypeDef cea_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX);
-
-void ucd_enable_on(void);
-void ucd_enable_off(void);
-HAL_StatusTypeDef ucd_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
-
-// I2C Slave Stuff
-
-
-
+// -------------------------
+// I2C Master Stuff
+// -------------------------
+void slv_i2C_clear_buffer(uint8_t* buffer, uint8_t size);
+// -------------------------
 // Deleteme
+// -------------------------
 uint8_t i = 0x00;
 uint16_t max_value = 70;
-
-
 /* USER CODE END PFP */
+
+
+
+
+
+
+
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 /* USER CODE END 0 */
+
+
+
+
+
+
+
+
+
 
 /**
   * @brief  The application entry point.
@@ -135,14 +171,9 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  aRxBuffer[0]=0x00;
-  aRxBuffer[1]=0x00;
-  aRxBuffer[2]=0x00;
-  aRxBuffer[3]=0x00;
-  aTxBuffer[0]=0xAA;
-  aTxBuffer[1]=0xBB;
-  aTxBuffer[2]=0xCC;
-  aTxBuffer[3]=0xDD;
+  //slv_i2C_clear_buffer(i2c_tx_buffer, TXBUFFERSIZE);
+
+
 
   //HAL_I2C_MspInit();
 
@@ -184,7 +215,8 @@ int main(void)
 
 		if (Xfer_Complete ==1)
 		{
-			HAL_Delay(1);
+
+			HAL_Delay(1); // Delay for 1 ms
 
 			/*##- Put I2C peripheral in listen mode process ###########################*/
 			if(HAL_I2C_EnableListen_IT(&hi2c1) != HAL_OK)
@@ -663,6 +695,20 @@ bool ramp_up(void)
 	//
 }
 
+void slv_i2C_clear_buffer(uint8_t* buffer, uint8_t size)
+{
+
+	uint8_t idx = 0; // An index
+
+	for(idx = 0; i < size; i++)
+	{
+		// Cycle through and clear the buffer array
+		*buffer = 0x00;
+		buffer++;
+	}
+
+}
+
 
 
 
@@ -680,10 +726,10 @@ void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *I2cHandle)
   /* Toggle LED4: Transfer in transmission process is correct */
 
   Xfer_Complete = 1;
-  aTxBuffer[0]++;
-  aTxBuffer[1]++;
-  aTxBuffer[2]++;
-  aTxBuffer[3]++;
+  i2c_tx_buffer[0]++;
+  i2c_tx_buffer[1]++;
+  i2c_tx_buffer[2]++;
+  i2c_tx_buffer[3]++;
 
 }
 
@@ -723,8 +769,8 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
   {
      /*##- Start the transmission process #####################################*/
   /* While the I2C in reception process, user can transmit data through
-     "aTxBuffer" buffer */
-  if (HAL_I2C_Slave_Seq_Transmit_IT(&hi2c1, (uint8_t *)aTxBuffer, TXBUFFERSIZE, I2C_FIRST_AND_LAST_FRAME) != HAL_OK)
+     "i2c_tx_buffer" buffer */
+  if (HAL_I2C_Slave_Seq_Transmit_IT(&hi2c1, (uint8_t *)i2c_tx_buffer, TXBUFFERSIZE, I2C_FIRST_AND_LAST_FRAME) != HAL_OK)
 
     {
     /* Transfer error in transmission process */
