@@ -65,7 +65,7 @@ HAL_StatusTypeDef status;
 #define I2C_RX_ATTEMPT_PERIOD 100 // ms
 #define I2C_RX_MAX_ATTEMPTS 5
 uint8_t i2c_tx_buffer[TXBUFFERSIZE];				// Transmit buffer
-uint8_t aRxBuffer[RXBUFFERSIZE];				// Recieve buffer
+uint8_t i2c_rx_buffer[RXBUFFERSIZE];				// Recieve buffer
 //------------------------------
 // Deleteme
 #define INCREMENT_DELAY 500
@@ -171,7 +171,8 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  //slv_i2C_clear_buffer(i2c_tx_buffer, TXBUFFERSIZE);
+
+  slv_i2C_clear_buffer(i2c_tx_buffer, TXBUFFERSIZE);
 
 
 
@@ -746,10 +747,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
   /* Toggle LED4: Transfer in reception process is correct */
 
   Xfer_Complete = 1;
-  //aRxBuffer[0]=0x00;
-  //aRxBuffer[1]=0x00;
-  //aRxBuffer[2]=0x00;
-  //aRxBuffer[3]=0x00;
+
 }
 
 
@@ -782,7 +780,7 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
   {
 
       /*##- Put I2C peripheral in reception process ###########################*/
-  if (HAL_I2C_Slave_Seq_Receive_IT(&hi2c1, (uint8_t *)aRxBuffer, RXBUFFERSIZE, I2C_FIRST_AND_LAST_FRAME) != HAL_OK)
+  if (HAL_I2C_Slave_Seq_Receive_IT(&hi2c1, (uint8_t *)i2c_rx_buffer, RXBUFFERSIZE, I2C_FIRST_AND_LAST_FRAME) != HAL_OK)
     {
     /* Transfer error in reception process */
     Error_Handler();
