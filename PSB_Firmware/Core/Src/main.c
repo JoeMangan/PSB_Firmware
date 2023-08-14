@@ -21,13 +21,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#define COUNTOF(__BUFFER__)   (sizeof(__BUFFER__) / sizeof(*(__BUFFER__)))
-/* Size of Transmission buffer */
-#define TXBUFFERSIZE                      (COUNTOF(aTxBuffer))
-/* Size of Reception buffer */
-#define RXBUFFERSIZE                      TXBUFFERSIZE
-
-
 #include "stdbool.h"
 #include "stdio.h"
 #include "string.h"
@@ -46,24 +39,27 @@ HAL_StatusTypeDef status;
 /* USER CODE BEGIN PD */
 
 
-/* Buffer used for transmission */
-uint8_t aTxBuffer[4];
-
-/* Buffer used for reception */
-uint8_t aRxBuffer[4];
-
-// Deleteme
-#define INCREMENT_DELAY 500
-#define PAUSE_DELAY 1000
 
 // I2C related definitions
+//------------------------------
+// I2C Slave
+//------------------------------
+#define COUNTOF(__BUFFER__)   (sizeof(__BUFFER__) / sizeof(*(__BUFFER__)))
+#define TXBUFFERSIZE                      4//(COUNTOF(aTxBuffer))   // Size of Tx buffer
+#define RXBUFFERSIZE                      1//TXBUFFERSIZE 			// Size of Rx buffer
+// I2C Master
+//------------------------------
 #define I2C_TIMEOUT_DURATION 10 // Not sure of the units of this - could be ms
 #define I2C_TX_ATTEMPT_PERIOD 100 // ms
 #define I2C_TX_MAX_ATTEMPTS 5
 #define I2C_RX_ATTEMPT_PERIOD 100 // ms
 #define I2C_RX_MAX_ATTEMPTS 5
+uint8_t aTxBuffer[TXBUFFERSIZE];				// Transmit buffer
+uint8_t aRxBuffer[RXBUFFERSIZE];				// Recieve buffer
 
-
+// Deleteme
+#define INCREMENT_DELAY 500
+#define PAUSE_DELAY 1000
 
 /* USER CODE END PD */
 
@@ -106,6 +102,10 @@ HAL_StatusTypeDef cea_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 void ucd_enable_on(void);
 void ucd_enable_off(void);
 HAL_StatusTypeDef ucd_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
+
+// I2C Slave Stuff
+
+
 
 // Deleteme
 uint8_t i = 0x00;
@@ -178,35 +178,39 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  while(1)
+  /* USER CODE BEGIN WHILE */
+
+  while (1)
   {
-	  if (Xfer_Complete ==1)
-	  {
-		HAL_Delay(1);
-		/*##- Put I2C peripheral in listen mode process ###########################*/
-		if(HAL_I2C_EnableListen_IT(&hi2c1) != HAL_OK)
-		{
-		  /* Transfer error in reception process */
-		  Error_Handler();
-		}
-		  Xfer_Complete =0;
-	  }
+
+	   if (Xfer_Complete ==1)
+	   {
+		   //HAL_Delay(1);
+		   /*##- Put I2C peripheral in listen mode process ###########################*/
+			if(HAL_I2C_EnableListen_IT(&hi2c1) != HAL_OK)
+			{
+				/* Transfer error in reception process */
+				Error_Handler();
+			}
+			Xfer_Complete =0;
+	   }
   }
+
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-    ucd_enable_on();
+    //ucd_enable_on();
 
-	uint8_t command[3] = {UCD_DAC_VBIAS_INDEX,
-						  0x10,
-						  0x00};
+	//uint8_t command[3] = {UCD_DAC_VBIAS_INDEX,
+	//					  0x10,
+	//					  0x00};
 
-	HAL_StatusTypeDef status = ucd_i2c_write(ADDR_UCD_DAC, &command[0], 3);
+	//HAL_StatusTypeDef status = ucd_i2c_write(ADDR_UCD_DAC, &command[0], 3);
 
 
-  }
+
 	/*
 	* CEA TEST
 	*/
@@ -246,7 +250,7 @@ int main(void)
 
 	*/
   /* USER CODE END 3 */
-//}
+}
 
 /**
   * @brief System Clock Configuration
@@ -276,7 +280,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLN = 10;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
-  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV4;
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -291,7 +295,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -313,8 +317,8 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x00909BEB;
-  hi2c1.Init.OwnAddress1 = ADDR_I2C_SLV;
+  hi2c1.Init.Timing = 0x10909CEC;
+  hi2c1.Init.OwnAddress1 = 50;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c1.Init.OwnAddress2 = 0;
@@ -361,7 +365,7 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x00909BEB;
+  hi2c2.Init.Timing = 0x10909CEC;
   hi2c2.Init.OwnAddress1 = 0;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -409,7 +413,7 @@ static void MX_I2C3_Init(void)
 
   /* USER CODE END I2C3_Init 1 */
   hi2c3.Instance = I2C3;
-  hi2c3.Init.Timing = 0x00909BEB;
+  hi2c3.Init.Timing = 0x10909CEC;
   hi2c3.Init.OwnAddress1 = 0;
   hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -631,6 +635,35 @@ HAL_StatusTypeDef cea_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 	return(status);
 }
 
+bool place_ijc_dssd_hv_into_safe_state(void)
+{
+	// If the board enable pin is reset
+		// Disable the HV enable pin.
+		// Set the board enable pin
+		// Set the digipot value to 0
+		// Disable the enable pin
+		// return(0)
+
+	// If the board enable pin is set
+		// If HV enable pin is set
+			// Get the digipot value
+				// if the digipot value is > 0
+					// Ramp down to 0 from that value
+					// Disable the HV enable pin.
+					// Disable the enable pin
+					// return(0)
+
+		// If HV enable pin is reset
+			// Set the digipot value to 0
+			// Disable the enable pin
+			// return(0)
+}
+
+bool ramp_up(void)
+{
+	//
+}
+
 
 
 
@@ -668,10 +701,10 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
   /* Toggle LED4: Transfer in reception process is correct */
 
   Xfer_Complete = 1;
-  aRxBuffer[0]=0x00;
-  aRxBuffer[1]=0x00;
-  aRxBuffer[2]=0x00;
-  aRxBuffer[3]=0x00;
+  //aRxBuffer[0]=0x00;
+  //aRxBuffer[1]=0x00;
+  //aRxBuffer[2]=0x00;
+  //aRxBuffer[3]=0x00;
 }
 
 
@@ -722,6 +755,7 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
   */
 void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
 {
+	//HAL_I2C_EnableListen_IT(&hi2c1);
 }
 
 /**
@@ -742,7 +776,6 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *I2cHandle)
     Error_Handler();
   }
 }
-
 
 /* USER CODE END 4 */
 

@@ -58,7 +58,7 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 #define ADDR_CEA_DIGIPOT 0b0101100
-#define ADDR_I2C_SLV 0xAA
+#define ADDR_I2C_SLV 0x32
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
 #define MCO_Pin GPIO_PIN_0
