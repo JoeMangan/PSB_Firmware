@@ -163,15 +163,14 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
-  // Enable the Listen mode with Interrupts for the I2C:
-  // The Listen Mode will wait for an I2C Event to occur
-  // and will be treated in the Interrupt Service Routine
-  // of the I2C.
+
   if(HAL_I2C_EnableListen_IT(&hi2c1) != HAL_OK)
   {
-    /* Transfer error in reception process */
-    Error_Handler();
+	/* Transfer error in reception process */
+	Error_Handler();
   }
+
+
 
   /* USER CODE END 2 */
 
@@ -183,19 +182,19 @@ int main(void)
   while (1)
   {
 
-	   if (Xfer_Complete ==1)
-	   {
-		   //HAL_Delay(1);
-		   /*##- Put I2C peripheral in listen mode process ###########################*/
+		if (Xfer_Complete ==1)
+		{
+			HAL_Delay(1);
+
+			/*##- Put I2C peripheral in listen mode process ###########################*/
 			if(HAL_I2C_EnableListen_IT(&hi2c1) != HAL_OK)
 			{
 				/* Transfer error in reception process */
 				Error_Handler();
 			}
 			Xfer_Complete =0;
-	   }
+		}
   }
-
 
     /* USER CODE END WHILE */
 
