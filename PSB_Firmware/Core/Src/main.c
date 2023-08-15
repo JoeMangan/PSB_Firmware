@@ -243,18 +243,20 @@ void main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		if (Xfer_Complete ==1)                            // Check for the I2C read complete to have been executed
-		{
+	  ijc_dssd_ramp_loop();
 
-			i2c_slv_cmd_rx_tx_handle();
+	  if (Xfer_Complete ==1)                            // Check for the I2C read complete to have been executed
+	  {
 
-			HAL_Delay(1); 								  // Delay for 1 ms
-			if(HAL_I2C_EnableListen_IT(&hi2c1) != HAL_OK) // Put I2C peripheral in listen mode process
-			{
-				Error_Handler();
-			}
-			Xfer_Complete =0;
-		}
+		  i2c_slv_cmd_rx_tx_handle();
+
+		  HAL_Delay(1); 								  // Delay for 1 ms
+		  if(HAL_I2C_EnableListen_IT(&hi2c1) != HAL_OK) // Put I2C peripheral in listen mode process
+		  {
+			  Error_Handler();
+		  }
+		  Xfer_Complete =0;
+	  }
 
   }
 
@@ -834,6 +836,14 @@ bool ijc_board_enable_get(void)
 }
 
 
+void ijc_dssd_ramp_loop(void)
+{
+	//
+
+}
+
+
+
 HAL_StatusTypeDef ijc_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX)
 {
 	// Write bytes over I2C
@@ -994,6 +1004,10 @@ bool i2c_slv_cmd_rx_tx_handle(void)
     {
 		// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
+		//                     UCD Detector Commands
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+
     	case(CMD_UCD_ENABLE):
 		{
 			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
@@ -1071,6 +1085,9 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 		}
 		// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
+    	//                     IJC Detector Commands
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
     	case(CMD_IJC_ENABLE):
 		{
 			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
@@ -1100,16 +1117,169 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 			}
 			break;
 		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_IJC_1_5_VOLTAGE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c2, ADDR_IJC_MAX9611_1_5, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
 
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
 
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_IJC_1_5_CURRENT):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				// read the UCD max6911 AVDD device
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c2, ADDR_IJC_MAX9611_1_5, CSA_DATA_BYTE_MSB, CSA_DATA_BYTE_LSB);
 
-    	//CMD_IJC_1_5_VOLTAGE
-    	//CMD_IJC_1_5_CURRENT
-    	//CMD_IJC_2_VOLTAGE
-    	//CMD_IJC_2_CURRENT
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
 
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_IJC_2_VOLTAGE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c2, ADDR_IJC_MAX9611_2, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
 
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
 
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_IJC_2_CURRENT):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				// read the UCD max6911 AVDD device
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c2, ADDR_IJC_MAX9611_2, CSA_DATA_BYTE_MSB, CSA_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_IJC_HV_VOLTAGE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c2, ADDR_IJC_MAX9611_HV_VOLTAGE, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_IJC_HV_CURRENT):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				// read the UCD max6911 AVDD device
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c2, ADDR_IJC_MAX9611_HV_CURRENT, CSA_DATA_BYTE_MSB, CSA_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+    	// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_IJC_TARGET_HV_VOLTAGE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = ijc_detector.hv_voltage_value;        // Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				if(i2c_slv_rx.bytes.data_byte_msb <= 0x0F)
+				{
+					// Read the data from the buffer
+					ijc_detector.hv_voltage_value = (i2c_slv_rx.bytes.data_byte_msb << 8) |
+													 i2c_slv_rx.bytes.data_byte_lsb;
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				else
+				{
+					i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+					status =  EXIT_FAILURE;
+					return(status);
+				}
+			}
+			break;
+		}
     	// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
     	default:

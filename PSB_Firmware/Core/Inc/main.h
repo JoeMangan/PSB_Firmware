@@ -108,10 +108,10 @@ void Error_Handler(void);
 #define UCD_DAC_MBIAS_2_INDEX   0x14
 
 // Dev addrs on the IJC board
-#define ADDR_IJC_MAX9611_1_5    0b11100000    // The 1.5V supply (U11 on the schematic)
-#define ADDR_IJC_MAX9611_2      0b11100010    // The -2V supply  (U12 on the schematic)
-#define ADDR_IJC_MAX9611_HV_C   0b11100110    // The HV current  (U13 on the schematic)
-#define ADDR_IJC_MAX9611_HV_V   0b11100100    // The HV voltage  (U14 on the schematic)
+#define ADDR_IJC_MAX9611_1_5    	  0b11100000    // The 1.5V supply (U11 on the schematic)
+#define ADDR_IJC_MAX9611_2      	  0b11100010    // The -2V supply  (U12 on the schematic)
+#define ADDR_IJC_MAX9611_HV_CURRENT   0b11100110    // The HV current  (U13 on the schematic)
+#define ADDR_IJC_MAX9611_HV_VOLTAGE   0b11100100    // The HV voltage  (U14 on the schematic)
 
 // I2C slv command list
 // --------------------------------------
@@ -130,10 +130,15 @@ void Error_Handler(void);
 // IJC Detector Commands
 #define CMD_IJC_ENABLE 						0x60
 // xxxxxxxxxx
+#define CMD_IJC_HV_VOLTAGE 			        0x62
+#define CMD_IJC_HV_CURRENT 			        0x63
+// xxxxxxxxxx
+#define CMD_IJC_TARGET_HV_VOLTAGE 			0x64
 #define CMD_IJC_1_5_VOLTAGE 			    0x65
 #define CMD_IJC_1_5_CURRENT 			    0x66
 #define CMD_IJC_2_VOLTAGE 			        0x67
 #define CMD_IJC_2_CURRENT 			        0x68
+
 
 
 
@@ -164,6 +169,7 @@ typedef union{
 
 typedef struct
 {
+	uint16_t hv_voltage_value;
 	uint16_t board_enable_state;
 } _detector;
 
