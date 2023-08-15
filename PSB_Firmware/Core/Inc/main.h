@@ -28,7 +28,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
-
+#include "max9611.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -97,10 +97,63 @@ void Error_Handler(void);
 #define ENABLE_5_UCD_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+#define ADDR_UCD_MAX9611_AVDD   0b11100100
+
+#define ADDR_UCD_MAX9611_DVDD   0b11100010
+
+
 #define ADDR_UCD_DAC     		0x9E
 #define UCD_DAC_VBIAS_INDEX     0x10
 #define UCD_DAC_MBIAS_1_INDEX   0x12
 #define UCD_DAC_MBIAS_2_INDEX   0x14
+// I2C slv command list
+// --------------------------------------
+#define CMD_READ							0x01
+#define CMD_WRITE                           0x00
+#define CMD_FAIL_OP_RESP                    0xFFFF
+#define CMD_FAIL_OP_INPROG_RESP             0xFFFE
+#define CMD_SUCCESS_RESP                    0x0001
+
+// UCD Detector
+#define CMD_UCD_ENABLE 						0x80
+#define CMD_UCD_AVDD_VOLTAGE                0x86
+#define CMD_UCD_AVDD_CURRENT                0x87
+
+// A union struct to hold the I2C slv RX
+typedef union{
+	struct
+	{
+		uint8_t data_byte_lsb     :8;
+		uint8_t data_byte_msb     :8;
+		uint8_t rw_state	      :8;
+		uint8_t cmd			      :8;
+	} bytes;
+	uint32_t data;
+} _i2c_slv_rx;
+
+
+// A union struct to hold the I2C slv TX
+typedef union{
+	struct
+	{
+	  uint8_t byte_2   :8;
+	  uint8_t byte_1   :8;
+	} bytes;
+	uint16_t data;
+} _i2c_slv_tx;
+
+
+typedef struct
+{
+	uint16_t board_enable_state;
+} _detector;
+
+
+typedef enum max6911_ctrl_ENUM
+{
+	INIT_WITH_CURRENT_GAIN_8		= 0x00,
+	FASTREAD_NORMAL_OPERATION	    = 0x01
+} _max6911_ctrl;
 
 
 /* USER CODE END Private defines */
