@@ -97,15 +97,22 @@ void Error_Handler(void);
 #define ENABLE_5_UCD_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+
+// Revise the UCD stuff
 #define ADDR_UCD_MAX9611_AVDD   0b11100100
-
 #define ADDR_UCD_MAX9611_DVDD   0b11100010
-
-
+// ----------------------------------------
 #define ADDR_UCD_DAC     		0x9E
 #define UCD_DAC_VBIAS_INDEX     0x10
 #define UCD_DAC_MBIAS_1_INDEX   0x12
 #define UCD_DAC_MBIAS_2_INDEX   0x14
+
+// Dev addrs on the IJC board
+#define ADDR_IJC_MAX9611_1_5    0b11100000    // The 1.5V supply (U11 on the schematic)
+#define ADDR_IJC_MAX9611_2      0b11100010    // The -2V supply  (U12 on the schematic)
+#define ADDR_IJC_MAX9611_HV_C   0b11100110    // The HV current  (U13 on the schematic)
+#define ADDR_IJC_MAX9611_HV_V   0b11100100    // The HV voltage  (U14 on the schematic)
+
 // I2C slv command list
 // --------------------------------------
 #define CMD_READ							0x01
@@ -113,11 +120,23 @@ void Error_Handler(void);
 #define CMD_FAIL_OP_RESP                    0xFFFF
 #define CMD_FAIL_OP_INPROG_RESP             0xFFFE
 #define CMD_SUCCESS_RESP                    0x0001
-
-// UCD Detector
+// ----------------------------------------------
+// UCD Detector Commands
 #define CMD_UCD_ENABLE 						0x80
+// xxxxxxxxxx
 #define CMD_UCD_AVDD_VOLTAGE                0x86
 #define CMD_UCD_AVDD_CURRENT                0x87
+// ----------------------------------------------
+// IJC Detector Commands
+#define CMD_IJC_ENABLE 						0x60
+// xxxxxxxxxx
+#define CMD_IJC_1_5_VOLTAGE 			    0x65
+#define CMD_IJC_1_5_CURRENT 			    0x66
+#define CMD_IJC_2_VOLTAGE 			        0x67
+#define CMD_IJC_2_CURRENT 			        0x68
+
+
+
 
 // A union struct to hold the I2C slv RX
 typedef union{

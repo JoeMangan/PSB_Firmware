@@ -42,8 +42,6 @@
 __IO uint32_t     Transfer_Direction = 0;
 __IO uint32_t     Xfer_Complete = 0;
 //------------------------------
-HAL_StatusTypeDef status;
-_detector ucd_detector;
 /* USER CODE END PTD */
 
 
@@ -99,6 +97,9 @@ I2C_HandleTypeDef hi2c2;
 I2C_HandleTypeDef hi2c3;
 UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
+HAL_StatusTypeDef status;
+_detector ucd_detector;
+_detector ijc_detector;
 struct max6811_registers max6911;             		// A structure for storing the i2c recieved data
 uint8_t i2c_tx_buffer[TXBUFFERSIZE];				// Transmit buffer
 uint8_t i2c_rx_buffer[RXBUFFERSIZE];				// Recieve buffer
@@ -126,19 +127,28 @@ static void MX_I2C1_Init(void);
 // General Functionality
 // -------------------------
 void copy_array(volatile uint8_t *source, volatile uint8_t *dest, uint16_t count);
+HAL_StatusTypeDef i2c_write_cmd_data(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
 bool i2c_slv_cmd_rx_tx_handle(void);
+uint16_t max6911_read (I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_msb, uint8_t cmd_lsb);
+
 // -------------------------
 // GPIO and Board Enables
 // -------------------------
 void ht_enable_on(void);
 void ht_enable_off(void);
-void cea_enable_on(void);
-void cea_enable_off(void);
+void cea_enable_on(void);       // Revise
+void cea_enable_off(void);      // Revise
 void ucd_board_enable_set(bool);
 bool ucd_board_enable_get(void);
+void ijc_board_enable_set(bool);
+bool ijc_board_enable_get(void);
 
 // I2C Slave Stuff
 // -------------------------
+HAL_StatusTypeDef i2c_write_cmd_data(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
+HAL_StatusTypeDef i2c_read(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX);
+HAL_StatusTypeDef i2c_write(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
+HAL_StatusTypeDef i2c_write_read(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX);
 HAL_StatusTypeDef ucd_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
 HAL_StatusTypeDef ucd_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX);
 HAL_StatusTypeDef ucd_i2c_write_cmd_data(uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
@@ -591,7 +601,9 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-
+//************************************
+//            General
+//************************************
 void copy_array(volatile uint8_t *source, volatile uint8_t *dest, uint16_t count)
 {
     uint16_t copyIndex = 0;
@@ -601,38 +613,91 @@ void copy_array(volatile uint8_t *source, volatile uint8_t *dest, uint16_t count
     }
 }
 
-
-
-void ht_enable_on(void)
+HAL_StatusTypeDef i2c_write_cmd_data(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX)
 {
-  HAL_GPIO_WritePin(ENABLE_HT_GPIO_Port, ENABLE_HT_Pin, GPIO_PIN_SET);
-  //GPIOB->BSRR = 0x00000080;   // CEA enable high
+	uint8_t out_ptr[10] = {0x00};
+	out_ptr[0] = cmd;
+	copy_array(data, &out_ptr[1], countTX);
+
+	// Write bytes over I2C
+	HAL_StatusTypeDef ret = HAL_I2C_Master_Transmit(hi2c, dev_addr, out_ptr, countTX + 1, I2C_TIMEOUT_DURATION);
+	return(ret);
 }
 
-void ht_enable_off(void)
+HAL_StatusTypeDef i2c_read(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX)
 {
-  HAL_GPIO_WritePin(ENABLE_HT_GPIO_Port, ENABLE_HT_Pin, GPIO_PIN_RESET);
-  //GPIOB->BSRR = 0x00800000;   // CEA enable low
+	// Read bytes over I2C
+	HAL_StatusTypeDef ret = HAL_I2C_Master_Receive(hi2c, dev_addr, in_ptr, countRX, I2C_TIMEOUT_DURATION);
+	return(ret);
 }
 
+HAL_StatusTypeDef i2c_write(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX)
+{
+	// Write bytes over I2C
+	HAL_StatusTypeDef ret = HAL_I2C_Master_Transmit(hi2c, dev_addr, out_ptr, countTX, I2C_TIMEOUT_DURATION);
+	return(ret);
+}
+
+HAL_StatusTypeDef i2c_write_read(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX)
+{
+	// The status used to indicate success/error
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t tx_attemps = I2C_TX_MAX_ATTEMPTS;
+	uint8_t rx_attemps = I2C_RX_MAX_ATTEMPTS;
+
+	do
+	{
+		// Write operation
+		if(tx_attemps < I2C_TX_MAX_ATTEMPTS){HAL_Delay(I2C_TX_ATTEMPT_PERIOD);} // Delay if re-attempting I2C Operation
+		status = i2c_write(hi2c, dev_addr, out_ptr, countTX);						// Perform I2C operation
+		tx_attemps --;															// Decrement the attempt counter
+	}while((status == HAL_ERROR) && (tx_attemps > 0));						    // Check the I2C operation status
+
+	if(status == HAL_ERROR){return(status);}
+
+	HAL_Delay(5);
+
+	do
+	{
+		// Read operation
+		status =  i2c_read(hi2c, dev_addr, in_ptr, countRX); 						// Delay if re-attempting I2C Operation
+		if(rx_attemps < I2C_RX_MAX_ATTEMPTS){HAL_Delay(I2C_RX_ATTEMPT_PERIOD);}	// Perform I2C operation
+		rx_attemps --;															// Decrement the attempt counter
+	}while((status == HAL_ERROR) && (rx_attemps > 0));							// Check the I2C operation status
+
+	return(status);
+}
 
 //************************************
-//            UCD PSB
+//        Chips and Devs
 //************************************
 
-// Board enable functions
-void ucd_board_enable_set(bool gpio_state)
+uint16_t max6911_read(I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_msb, uint8_t cmd_lsb)
 {
-	HAL_GPIO_WritePin(ENABLE_5_UCD_GPIO_Port, ENABLE_5_UCD_Pin, gpio_state);
+	uint16_t temp_data = 0;
+	uint8_t rx_data[2] = {0x00, 0x00};
+
+	// Init the device ctrl reg1
+	max6911_set_ctrl1_register(INIT_WITH_CURRENT_GAIN_8);
+	// Write to the control register 1 and 2
+	status = i2c_write_cmd_data(hi2c, device_addr, CONTROL_REGISTER_1, &max6911.ctrl_reg_1.byte, 2);
+	status = i2c_write_cmd_data(hi2c, device_addr, CONTROL_REGISTER_2, &max6911.ctrl_reg_2.byte, 2);
+
+
+	// Set up the device for normal fast read operation
+	max6911_set_ctrl1_register(FASTREAD_NORMAL_OPERATION);
+	// Set up the read for MSB and LSB
+
+	status = i2c_write_read(hi2c, device_addr, &cmd_msb, 1, &rx_data[0], 1);
+	status = i2c_write_read(hi2c, device_addr, &cmd_lsb, 1, &rx_data[1], 1);
+
+	temp_data = (rx_data[0]<<8) | (rx_data[1]);
+	return(temp_data);
+
 }
 
-bool ucd_board_enable_get(void)
-{
-	return(HAL_GPIO_ReadPin(ENABLE_5_UCD_GPIO_Port, ENABLE_5_UCD_Pin));
-}
 
-
-void ucd_max6911_set_ctrl1_register(_max6911_ctrl selector)
+void max6911_set_ctrl1_register(_max6911_ctrl selector)
 {
 
 	switch(selector)
@@ -664,7 +729,39 @@ void ucd_max6911_set_ctrl1_register(_max6911_ctrl selector)
 	}
 }
 
-// I2C
+
+//************************************
+//            HV
+//************************************
+
+void ht_enable_on(void)
+{
+  HAL_GPIO_WritePin(ENABLE_HT_GPIO_Port, ENABLE_HT_Pin, GPIO_PIN_SET);
+  //GPIOB->BSRR = 0x00000080;   // CEA enable high
+}
+
+void ht_enable_off(void)
+{
+  HAL_GPIO_WritePin(ENABLE_HT_GPIO_Port, ENABLE_HT_Pin, GPIO_PIN_RESET);
+  //GPIOB->BSRR = 0x00800000;   // CEA enable low
+}
+
+
+//************************************
+//            UCD PSB
+//************************************
+
+// Board enable functions
+void ucd_board_enable_set(bool gpio_state)
+{
+	HAL_GPIO_WritePin(ENABLE_5_UCD_GPIO_Port, ENABLE_5_UCD_Pin, gpio_state);
+}
+
+bool ucd_board_enable_get(void)
+{
+	return(HAL_GPIO_ReadPin(ENABLE_5_UCD_GPIO_Port, ENABLE_5_UCD_Pin));
+}
+
 HAL_StatusTypeDef ucd_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX)
 {
 	// Write bytes over I2C
@@ -713,6 +810,78 @@ HAL_StatusTypeDef ucd_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 	{
 		// Read operation
 		status =  ucd_i2c_read(dev_addr, in_ptr, countRX); 						// Delay if re-attempting I2C Operation
+		if(rx_attemps < I2C_RX_MAX_ATTEMPTS){HAL_Delay(I2C_RX_ATTEMPT_PERIOD);}	// Perform I2C operation
+		rx_attemps --;															// Decrement the attempt counter
+	}while((status == HAL_ERROR) && (rx_attemps > 0));							// Check the I2C operation status
+
+	return(status);
+}
+
+
+//************************************
+//            IJC PSB
+//************************************
+
+// Board enable functions
+void ijc_board_enable_set(bool gpio_state)
+{
+	HAL_GPIO_WritePin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin, gpio_state);
+}
+
+bool ijc_board_enable_get(void)
+{
+	return(HAL_GPIO_ReadPin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin));
+}
+
+
+HAL_StatusTypeDef ijc_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX)
+{
+	// Write bytes over I2C
+	HAL_StatusTypeDef ret = HAL_I2C_Master_Transmit(&hi2c2, dev_addr, out_ptr, countTX, I2C_TIMEOUT_DURATION);
+	return(ret);
+}
+
+HAL_StatusTypeDef ijc_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX)
+{
+	// Read bytes over I2C
+	HAL_StatusTypeDef ret = HAL_I2C_Master_Receive(&hi2c2, dev_addr, in_ptr, countRX, I2C_TIMEOUT_DURATION);
+	return(ret);
+}
+
+HAL_StatusTypeDef ijc_i2c_write_cmd_data(uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX)
+{
+	uint8_t out_ptr[10] = {0x00};
+	out_ptr[0] = cmd;
+	copy_array(data, &out_ptr[1], countTX);
+
+	// Write bytes over I2C
+	HAL_StatusTypeDef ret = HAL_I2C_Master_Transmit(&hi2c2, dev_addr, out_ptr, countTX + 1, I2C_TIMEOUT_DURATION);
+	return(ret);
+}
+
+HAL_StatusTypeDef ijc_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX)
+{
+	// The status used to indicate success/error
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t tx_attemps = I2C_TX_MAX_ATTEMPTS;
+	uint8_t rx_attemps = I2C_RX_MAX_ATTEMPTS;
+
+	do
+	{
+		// Write operation
+		if(tx_attemps < I2C_TX_MAX_ATTEMPTS){HAL_Delay(I2C_TX_ATTEMPT_PERIOD);} // Delay if re-attempting I2C Operation
+		status = ijc_i2c_write(dev_addr, out_ptr, countTX);						// Perform I2C operation
+		tx_attemps --;															// Decrement the attempt counter
+	}while((status == HAL_ERROR) && (tx_attemps > 0));						    // Check the I2C operation status
+
+	if(status == HAL_ERROR){return(status);}
+
+	HAL_Delay(5);
+
+	do
+	{
+		// Read operation
+		status =  ijc_i2c_read(dev_addr, in_ptr, countRX); 						// Delay if re-attempting I2C Operation
 		if(rx_attemps < I2C_RX_MAX_ATTEMPTS){HAL_Delay(I2C_RX_ATTEMPT_PERIOD);}	// Perform I2C operation
 		rx_attemps --;															// Decrement the attempt counter
 	}while((status == HAL_ERROR) && (rx_attemps > 0));							// Check the I2C operation status
@@ -811,6 +980,10 @@ HAL_StatusTypeDef cea_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 //}
 
 
+//************************************
+//            I2C Slave
+//************************************
+
 bool i2c_slv_cmd_rx_tx_handle(void)
 {
 	bool status = EXIT_SUCCESS;
@@ -856,25 +1029,12 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 		{
 			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
 			{
-				// Init params for the device read
-				uint8_t device_addr = ADDR_UCD_MAX9611_DVDD;
-				uint8_t command[2] = {RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB};
-				uint8_t rx_data[2] = {0x00, 0x00};
-
-				// Init the device ctrl reg1
-				ucd_max6911_set_ctrl1_register(INIT_WITH_CURRENT_GAIN_8);
-				// Write to the control register 1 and 2
-				status = ucd_i2c_write_cmd_data(device_addr, CONTROL_REGISTER_1, &max6911.ctrl_reg_1.byte, 2);
-				status = ucd_i2c_write_cmd_data(device_addr, CONTROL_REGISTER_2, &max6911.ctrl_reg_2.byte, 2);
-
-				// Set up the device for normal fast read operation
-				ucd_max6911_set_ctrl1_register(FASTREAD_NORMAL_OPERATION);
-				// Set up the read for MSB and LSB
-				status = ucd_i2c_write_read(device_addr, &command[0], 1, &rx_data[0], 1);
-				status = ucd_i2c_write_read(device_addr, &command[1], 1, &rx_data[1], 1);
+				// read the UCD max6911 AVDD device
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c3, ADDR_UCD_MAX9611_AVDD, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
 
 				// Load the MSB and LSB into the TX register buffer
-				i2c_slv_tx.data = (rx_data[0]<<8) | (rx_data[1]); 		                  // Prepare the date into the transmit
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
 
 				return(status);
 			}
@@ -888,11 +1048,76 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 		}
 		// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
+    	case(CMD_UCD_AVDD_CURRENT):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				// read the UCD max6911 AVDD device
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c3, ADDR_UCD_MAX9611_AVDD, CSA_DATA_BYTE_MSB, CSA_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_IJC_ENABLE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				ijc_detector.board_enable_state = (uint16_t)ijc_board_enable_get(); // Read the state enable pin
+				i2c_slv_tx.data = ijc_detector.board_enable_state; 					// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				// Write the state of the enable pin
+				if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_SET)
+				{
+					ijc_board_enable_set(GPIO_PIN_SET);								// Set the state of the pin
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				else if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_RESET)
+				{
+					ijc_board_enable_set(GPIO_PIN_RESET);                           // Set the state of the pin
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+
+
+
+    	//CMD_IJC_1_5_VOLTAGE
+    	//CMD_IJC_1_5_CURRENT
+    	//CMD_IJC_2_VOLTAGE
+    	//CMD_IJC_2_CURRENT
+
+
+
+    	// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
     	default:
 			break;
 	}
-
 }
+
+
 
 void i2c_slv_init(void)
 {
