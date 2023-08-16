@@ -199,6 +199,7 @@ typedef struct
 	uint8_t  hv_digipot_value;				// The value of the digipot - may not always be the most up to date
 	uint16_t hv_targate_value;				// The targate value to reach when referenced against the MAX6911 voltage reading
 	uint16_t board_enable_state;			// The enable state of the board
+	bool     making_safe_inprogress;        // The board is currently being made safe by ramp down
 } _detector;
 
 
