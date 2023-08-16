@@ -134,6 +134,7 @@ void Error_Handler(void);
 // ----------------------------------------------
 // IJC Detector Commands
 #define CMD_IJC_ENABLE 						0x60
+#define CMD_IJC_HV_LOOP_ENABLE				0x61
 // xxxxxxxxxx
 #define CMD_IJC_HV_VOLTAGE 			        0x62
 #define CMD_IJC_HV_CURRENT 			        0x63
@@ -174,10 +175,15 @@ typedef union{
 
 typedef struct
 {
-	bool     ramp_flag;
-	uint8_t  hv_digipot_value;
-	uint16_t hv_targate_value;
-	uint16_t board_enable_state;
+	bool     ramp_flag;						// The ramp flag indicating when the period that the Nucleo must enter the digipot loop
+	bool     hv_loop_enable; 				// The loop enable flag allowing the user to hold the entry of the loop - default set to 1
+	uint8_t  hv_max_digipot_value;			// The max value allowable for setting the target value
+	uint8_t  hv_min_digipot_value;          // The min value allowable for setting the target value
+	uint8_t  hv_upper_deadband;				// The max dead band threshold for the loop when ramping up to the target value
+	uint8_t  hv_lower_deadband;			    // The min dead band threshold for the loop when ramping up to the target value
+	uint8_t  hv_digipot_value;				// The value of the digipot - may not always be the most up to date
+	uint16_t hv_targate_value;				// The targate value to reach when referenced against the MAX6911 voltage reading
+	uint16_t board_enable_state;			// The enable state of the board
 } _detector;
 
 

@@ -58,6 +58,9 @@ __IO uint32_t     Xfer_Complete = 0;
 #define I2C_RX_ATTEMPT_PERIOD 100 // ms
 #define I2C_RX_MAX_ATTEMPTS 5
 //------------------------------
+#define IJC_MAX_DIGIPOT_VALUE 150
+#define IJC_MIN_DIGIPOT_VALUE 0
+
 // Deleteme
 #define INCREMENT_DELAY 500
 #define PAUSE_DELAY 1000
@@ -153,6 +156,10 @@ void max6911_set_ctrl1_register(_max6911_ctrl selector);
 uint8_t i = 0x00;
 uint16_t max_value = 70;
 uint8_t counter = 0;
+
+
+
+
 //bool ijc_ramp_flag- = false;
 
 
@@ -204,6 +211,19 @@ int main(void)
   // Configure the CTRL_REG general settings (Assumed general settings)
 
   //while(1);
+
+  // Initalise the IJC lab detector
+  ijc_detector.ramp_flag            = 0;
+
+  ijc_detector.hv_max_digipot_value = IJC_MAX_DIGIPOT_VALUE - 1;
+  ijc_detector.hv_min_digipot_value = IJC_MIN_DIGIPOT_VALUE - 1;
+  ijc_detector.hv_lower_deadband = 43;
+  ijc_detector.hv_upper_deadband = 43;
+  ijc_detector.hv_digipot_value = 0;
+  ijc_detector.hv_targate_value = 0;
+  ijc_detector.board_enable_state = 0;
+  ijc_detector.hv_loop_enable = 1;
+
 
   // Configure the boards
   ht_enable_set(GPIO_PIN_RESET);
@@ -788,7 +808,7 @@ void ijc_dssd_ramp_loop(void)
 	uint8_t rx_data = 0;
 
 
-	if(ijc_detector.ramp_flag == true)
+	if(ijc_detector.ramp_flag == true && ijc_detector.hv_loop_enable == true)
 	{
 		// Read the MAX9611 voltage value
 		max6911_measured_voltage = max6911_read(&hi2c2, ADDR_IJC_MAX9611_HV_VOLTAGE, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
@@ -802,7 +822,7 @@ void ijc_dssd_ramp_loop(void)
 
 		// Check if the read value is greater than or less than the target value
 		// This gets the direction of the ramp (up/down)
-		if(ijc_detector.hv_targate_value > max6911_measured_voltage)
+		if((ijc_detector.hv_targate_value > max6911_measured_voltage) && (max6911_measured_voltage < (ijc_detector.hv_targate_value - ijc_detector.hv_lower_deadband)))
 		{
 			// If the target is greater than the current value, increment the digipot value
 			if (ijc_detector.hv_digipot_value <= 149)
@@ -817,7 +837,7 @@ void ijc_dssd_ramp_loop(void)
 				//ijc_detector.hv_digipot_value = data[0]<<8 | data[1];
 			}
 		}
-		else if (ijc_detector.hv_targate_value < max6911_measured_voltage)
+		else if ((ijc_detector.hv_targate_value < max6911_measured_voltage) && (max6911_measured_voltage > (ijc_detector.hv_targate_value + ijc_detector.hv_upper_deadband)))
 		{
 			if (ijc_detector.hv_digipot_value >= 1)
 			{
@@ -831,6 +851,18 @@ void ijc_dssd_ramp_loop(void)
 				HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
 				//ijc_detector.hv_digipot_value = data[0]<<8 | data[1];
 			}
+		}
+		else if((ijc_detector.hv_targate_value == 0) && (ijc_detector.hv_digipot_value > 0))
+		{
+			// If the value is 0 - continue ramping down to 0 on the digipot
+			ijc_detector.hv_digipot_value --;
+
+			// Write the digipot value - with 5 attempts
+			tx_data[1] = ijc_detector.hv_digipot_value;
+			//uint8_t command[2] = {0x00, 0x00};
+			//uint8_t data[2]    = {0x00, 0x00};
+			HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
+			//ijc_detector.hv_digipot_value = data[0]<<8 | data[1];
 		}
 		ijc_detector.ramp_flag  = false;
 	}
@@ -1198,6 +1230,36 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 				else if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_RESET)
 				{
 					ijc_board_enable_set(GPIO_PIN_RESET);                           // Set the state of the pin
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_IJC_HV_LOOP_ENABLE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = ijc_detector.hv_loop_enable; 						// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				// Write the state of the enable pin
+				if(i2c_slv_rx.bytes.data_byte_lsb == 1)
+				{
+					ijc_detector.hv_loop_enable = true;								// Set the state of the flag
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				else if(i2c_slv_rx.bytes.data_byte_lsb == 0)
+				{
+					ijc_detector.hv_loop_enable = false;						    // Set the state of the flag
 					i2c_slv_tx.data = CMD_SUCCESS_RESP;
 					return(status);
 				}
