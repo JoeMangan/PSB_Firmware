@@ -58,7 +58,6 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define ADDR_CEA_DIGIPOT 0b0101100
 #define ADDR_I2C_SLV 0x32
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
@@ -116,9 +115,14 @@ void Error_Handler(void);
 #define ADDR_IJC_MAX9611_HV_CURRENT   0b11100110    // The HV current  (U13 on the schematic)
 #define ADDR_IJC_MAX9611_HV_VOLTAGE   0b11100100    // The HV voltage  (U14 on the schematic)
 #define ADDR_IJC_DIGIPOT			  0b01011000	// The IJC Digipot (U5  on the schematic)
+// Dev addrs on the CEA board
+#define ADDR_CEA_MAX9611_HV_CURRENT   0b11100110    // The HV current  ( - on the schematic)
+#define ADDR_CEA_MAX9611_HV_VOLTAGE   0b11100000    // The HV voltage  ( - on the schematic)
+#define ADDR_CEA_DIGIPOT			  0b01011000	// The CEA Digipot ( - on the schematic)
 
 
-// IJC DSSD Detector
+
+// IJC DSSD Detector Definitions
 #define IJC_MAX_DIGIPOT_VALUE 		150
 #define IJC_MIN_DIGIPOT_VALUE 		0
 #define IJC_LOWER_DEADBAND			43
@@ -141,15 +145,20 @@ void Error_Handler(void);
 // IJC Detector Commands
 #define CMD_IJC_ENABLE 						0x60
 #define CMD_IJC_HV_LOOP_ENABLE				0x61
-// xxxxxxxxxx
 #define CMD_IJC_HV_VOLTAGE 			        0x62
 #define CMD_IJC_HV_CURRENT 			        0x63
-// xxxxxxxxxx
 #define CMD_IJC_TARGET_HV_VOLTAGE 			0x64
 #define CMD_IJC_1_5_VOLTAGE 			    0x65
 #define CMD_IJC_1_5_CURRENT 			    0x66
 #define CMD_IJC_2_VOLTAGE 			        0x67
 #define CMD_IJC_2_CURRENT 			        0x68
+// ----------------------------------------------
+// CEA Detector Commands
+#define CMD_CEA_ENABLE 						0x40
+#define CMD_CEA_HV_LOOP_ENABLE				0x41
+#define CMD_CEA_HV_VOLTAGE 			        0x42
+#define CMD_CEA_HV_CURRENT 			        0x43
+#define CMD_CEA_TARGET_HV_VOLTAGE 			0x44
 
 
 

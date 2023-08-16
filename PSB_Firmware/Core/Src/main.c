@@ -111,16 +111,17 @@ void copy_array(volatile uint8_t *source, volatile uint8_t *dest, uint16_t count
 bool i2c_slv_cmd_rx_tx_handle(void);
 uint16_t max6911_read (I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_msb, uint8_t cmd_lsb);
 bool ijc_detector_init(void);
+bool cea_detector_init(void);
 
 
 void ijc_dssd_ramp_loop(void);
-//void cea_dssd_ramp_loop(void);
+void cea_dssd_ramp_loop(void);
 // -------------------------
 // GPIO and Board Enables
 // -------------------------
 void ht_enable_set(bool);
-void cea_enable_on(void);       // Revise
-void cea_enable_off(void);      // Revise
+void cea_board_enable_set(bool);
+bool cea_board_enable_get(void);
 void ucd_board_enable_set(bool);
 bool ucd_board_enable_get(void);
 void ijc_board_enable_set(bool);
@@ -215,6 +216,8 @@ int main(void)
 	  while(1);
   }
 
+
+
   ht_enable_set(GPIO_PIN_SET);
 
 
@@ -233,7 +236,7 @@ int main(void)
   while (1)
   {
 	  ijc_dssd_ramp_loop();
-	  //cea_dssd_ramp_loop();
+	  cea_dssd_ramp_loop();
 
 	  if (Xfer_Complete ==1)                            // Check for the I2C read complete to have been executed
 	  {
@@ -249,60 +252,10 @@ int main(void)
 	  }
 
   }
-
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-    //ucd_enable_on();
-
-	//uint8_t command[3] = {UCD_DAC_VBIAS_INDEX,
-	//					  0x10,
-	//					  0x00};
-
-	//HAL_StatusTypeDef status = ucd_i2c_write(ADDR_UCD_DAC, &command[0], 3);
-
-
-
-	/*
-	* CEA TEST
-	*/
-	  /*
-	cea_enable_on();
-	HAL_Delay(100);
-
-	uint8_t command[2] = {0x00, 0x00};
-	uint8_t data[2]    = {0x00, 0x00};
-	HAL_StatusTypeDef status = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &command[0], 2, &data[0], 1);
-
-    HAL_Delay(100);
-
-    ht_enable_on();
-    HAL_Delay(100);
-
-
-
-	// Loop around and get/set
-	while(i < max_value)
-	{
-
-		HAL_StatusTypeDef status = cea_i2c_read(ADDR_CEA_DIGIPOT, &data[0], 1);
-
-		command[1] = i;
-		status = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &command[0], 2, &data[0], 1);
-
-		// Increment
-		i++;
-
-		// 500ms delay
-		HAL_Delay(INCREMENT_DELAY);
-	}
-
-	i--;
-	HAL_Delay(PAUSE_DELAY);
-
-	*/
   /* USER CODE END 3 */
 }
 
@@ -809,9 +762,6 @@ void max6911_set_ctrl1_register(_max6911_ctrl selector)
 }
 
 
-
-
-
 //************************************
 //            HV
 //************************************
@@ -891,8 +841,6 @@ void ijc_dssd_ramp_loop(void)
 	}
 }
 
-
-/*
 void cea_dssd_ramp_loop(void)
 {
 	// Control for the ramp up/down of the CEA voltage
@@ -949,7 +897,8 @@ void cea_dssd_ramp_loop(void)
 		cea_detector.ramp_flag  = false;
 	}
 }
-*/
+
+
 //************************************
 //            UCD PSB
 //************************************
@@ -1156,17 +1105,19 @@ HAL_StatusTypeDef ijc_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 //************************************
 
 // Board enable functions
-void cea_enable_on(void)
+void cea_board_enable_set(bool gpio_state)
 {
-  HAL_GPIO_WritePin(ENABLE_3_CEA_GPIO_Port, ENABLE_3_CEA_Pin, GPIO_PIN_SET);
-  //GPIOB->BSRR = 0x00000080;   // CEA enable high
+	HAL_GPIO_WritePin(ENABLE_3_CEA_GPIO_Port, ENABLE_3_CEA_Pin, gpio_state);
+	cea_detector.board_enable_state = gpio_state;
 }
 
-void cea_enable_off(void)
+bool cea_board_enable_get(void)
 {
-  HAL_GPIO_WritePin(ENABLE_3_CEA_GPIO_Port, ENABLE_3_CEA_Pin, GPIO_PIN_RESET);
-  //GPIOB->BSRR = 0x00800000;   // CEA enable low
+	cea_detector.board_enable_state = HAL_GPIO_ReadPin(ENABLE_3_CEA_GPIO_Port, ENABLE_3_CEA_Pin);
+	return(cea_detector.board_enable_state);
 }
+
+
 
 HAL_StatusTypeDef cea_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX)
 {
@@ -1258,7 +1209,6 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 		//                     UCD Detector Commands
 		// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
-
     	case(CMD_UCD_ENABLE):
 		{
 			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
@@ -1331,6 +1281,143 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
 				status =  EXIT_FAILURE;
 				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	//                     CEA Detector Commands
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_CEA_ENABLE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				cea_detector.board_enable_state = (uint16_t)cea_board_enable_get(); // Read the state enable pin
+				i2c_slv_tx.data = cea_detector.board_enable_state; 					// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				// Write the state of the enable pin
+				if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_SET)
+				{
+					cea_board_enable_set(GPIO_PIN_SET);								// Set the state of the pin
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				else if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_RESET)
+				{
+					cea_board_enable_set(GPIO_PIN_RESET);                           // Set the state of the pin
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_CEA_HV_LOOP_ENABLE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = cea_detector.hv_loop_enable; 						// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				// Write the state of the enable pin
+				if(i2c_slv_rx.bytes.data_byte_lsb == 1)
+				{
+					cea_detector.hv_loop_enable = true;								// Set the state of the flag
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				else if(i2c_slv_rx.bytes.data_byte_lsb == 0)
+				{
+					cea_detector.hv_loop_enable = false;						    // Set the state of the flag
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_CEA_HV_VOLTAGE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c2, ADDR_CEA_MAX9611_HV_VOLTAGE, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_CEA_HV_CURRENT):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				// read the UCD max6911 AVDD device
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c2, ADDR_CEA_MAX9611_HV_CURRENT, CSA_DATA_BYTE_MSB, CSA_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+    	// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_CEA_TARGET_HV_VOLTAGE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = cea_detector.hv_targate_value;        // Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				if(i2c_slv_rx.bytes.data_byte_msb <= 0x0F)
+				{
+					// Read the data from the buffer
+					cea_detector.hv_targate_value = (i2c_slv_rx.bytes.data_byte_msb << 8) |
+													 i2c_slv_rx.bytes.data_byte_lsb;
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				else
+				{
+					i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+					status =  EXIT_FAILURE;
+					return(status);
+				}
 			}
 			break;
 		}
@@ -1718,8 +1805,11 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *I2cHandle)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 {
 	counter ++;
+
+	// Set the flags responsable for running through the DSSD loop
 	ijc_detector.ramp_flag = true;
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
+	cea_detector.ramp_flag = true;
+	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
 }
 
 /* USER CODE END 4 */
