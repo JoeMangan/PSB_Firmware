@@ -18,21 +18,15 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-//#include "max9611.h"
-//#include "psb.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "max9611.h"
 #include "stdbool.h"
 #include "stdio.h"
 #include "string.h"
 #include "stdlib.h"
 /* USER CODE END Includes */
-
-
-
-
-
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
@@ -43,11 +37,6 @@ __IO uint32_t     Transfer_Direction = 0;
 __IO uint32_t     Xfer_Complete = 0;
 //------------------------------
 /* USER CODE END PTD */
-
-
-
-
-
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
@@ -75,27 +64,19 @@ __IO uint32_t     Xfer_Complete = 0;
 
 /* USER CODE END PD */
 
-
-
-
-
-
-
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 /* USER CODE END PM */
-
-
-
-
-
-
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
 I2C_HandleTypeDef hi2c3;
+
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart2;
+
 /* USER CODE BEGIN PV */
 HAL_StatusTypeDef status;
 _detector ucd_detector;
@@ -108,12 +89,6 @@ _i2c_slv_tx i2c_slv_tx;                             // A union struct to hold th
 _max6911_ctrl selector;
 /* USER CODE END PV */
 
-
-
-
-
-
-
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
@@ -121,6 +96,7 @@ static void MX_USART2_UART_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 // Function prototypes
 // -------------------------
@@ -130,12 +106,13 @@ void copy_array(volatile uint8_t *source, volatile uint8_t *dest, uint16_t count
 HAL_StatusTypeDef i2c_write_cmd_data(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
 bool i2c_slv_cmd_rx_tx_handle(void);
 uint16_t max6911_read (I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_msb, uint8_t cmd_lsb);
-
+void ijc_dssd_ramp_loop();
 // -------------------------
 // GPIO and Board Enables
 // -------------------------
-void ht_enable_on(void);
-void ht_enable_off(void);
+//void ht_enable_on(void);
+//void ht_enable_off(void);
+void ht_enable_set(bool);
 void cea_enable_on(void);       // Revise
 void cea_enable_off(void);      // Revise
 void ucd_board_enable_set(bool);
@@ -153,6 +130,11 @@ HAL_StatusTypeDef ucd_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t cou
 HAL_StatusTypeDef ucd_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX);
 HAL_StatusTypeDef ucd_i2c_write_cmd_data(uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
 HAL_StatusTypeDef ucd_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX);
+HAL_StatusTypeDef ijc_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX);
+HAL_StatusTypeDef ijc_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
+HAL_StatusTypeDef ijc_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX);
+
+
 HAL_StatusTypeDef cea_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
 HAL_StatusTypeDef cea_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX);
 HAL_StatusTypeDef cea_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX);
@@ -170,55 +152,47 @@ void max6911_set_ctrl1_register(_max6911_ctrl selector);
 // -------------------------
 uint8_t i = 0x00;
 uint16_t max_value = 70;
+uint8_t counter = 0;
+//bool ijc_ramp_flag- = false;
+
+
 /* USER CODE END PFP */
-
-
-
-
-
-
-
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 /* USER CODE END 0 */
 
-
-
-
-
-
-
-
-
-
 /**
   * @brief  The application entry point.
   * @retval int
   */
-void main(void)
+int main(void)
 {
   /* USER CODE BEGIN 1 */
   /* USER CODE END 1 */
+
   /* MCU Configuration--------------------------------------------------------*/
+
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
   /* USER CODE BEGIN Init */
   //HAL_I2C_MspInit();
   /* USER CODE END Init */
+
   /* Configure the system clock */
   SystemClock_Config();
+
   /* USER CODE BEGIN SysInit */
   /* USER CODE END SysInit */
+
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_I2C3_Init();
   MX_I2C2_Init();
   MX_I2C1_Init();
-
-
-
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   i2c_slv_init(); // Initialize the I2C slave module
   //ucd_init();     // Initialise the UCD detector
@@ -229,15 +203,33 @@ void main(void)
   // Configure the MAX9611 device - Might need to review this
   // Configure the CTRL_REG general settings (Assumed general settings)
 
+  //while(1);
 
-  ucd_board_enable_set(GPIO_PIN_SET);
+  // Configure the boards
+  ht_enable_set(GPIO_PIN_RESET);
+  //ucd_board_enable_set(GPIO_PIN_SET);
+  ijc_board_enable_set(GPIO_PIN_SET);
 
   HAL_Delay(500);
 
+  // Reset the digipot value to 0
+  uint8_t command[2] = {0x00, 0x00};
+  //uint8_t data[2]    = {0x00, 0x00};
+  HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &command[0], 2, &ijc_detector.hv_digipot_value, 1);
+  //ijc_detector.hv_digipot_value = data;
+
+  if (ijc_detector.hv_digipot_value != 0)
+  {
+	  while(1); // SAFTY CATCH FOR TESTING
+  }
+
+  // Enable the HV pin
+  ht_enable_set(GPIO_PIN_SET);
+
+  // Start the timer
+  HAL_TIM_Base_Start_IT(&htim2);
 
   /* USER CODE END 2 */
-
-
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -510,6 +502,51 @@ static void MX_I2C3_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 1000;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 40000;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -568,6 +605,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, ENABLE_HT_Pin|LD4_Pin|ENABLE_1_FPGA_Pin|ENABLE_2_IJC_Pin
                           |ENABLE_3_CEA_Pin|ENABLE_4_Pin|ENABLE_5_UCD_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(TIMING_PIN_GPIO_Port, TIMING_PIN_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
@@ -595,6 +635,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : TIMING_PIN_Pin */
+  GPIO_InitStruct.Pin = TIMING_PIN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(TIMING_PIN_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -732,22 +779,74 @@ void max6911_set_ctrl1_register(_max6911_ctrl selector)
 }
 
 
+void ijc_dssd_ramp_loop(void)
+{
+	// Control for the ramp up/down of the IJC voltage
+
+	uint16_t max6911_measured_voltage = 0;
+	uint8_t tx_data[2] = {0x00, 0x00};
+	uint8_t rx_data = 0;
+
+
+	if(ijc_detector.ramp_flag == true)
+	{
+		// Read the MAX9611 voltage value
+		max6911_measured_voltage = max6911_read(&hi2c2, ADDR_IJC_MAX9611_HV_VOLTAGE, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
+
+		// Shift the measured voltage down by 4 bits
+		max6911_measured_voltage = max6911_measured_voltage >> 4;
+
+		// Get the current digipot value
+		status = ijc_i2c_read(ADDR_IJC_DIGIPOT, &ijc_detector.hv_digipot_value, 1); 						// Delay if re-attempting I2C Operation
+		//ijc_detector.hv_digipot_value = rx_data;
+
+		// Check if the read value is greater than or less than the target value
+		// This gets the direction of the ramp (up/down)
+		if(ijc_detector.hv_targate_value > max6911_measured_voltage)
+		{
+			// If the target is greater than the current value, increment the digipot value
+			if (ijc_detector.hv_digipot_value <= 149)
+			{
+				ijc_detector.hv_digipot_value ++;
+
+				// Write the digipot value - with 5 attempts
+				tx_data[1] = ijc_detector.hv_digipot_value;
+				//uint8_t command[2] = {0x00, 0x00};
+				//uint8_t data[2]    = {0x00, 0x00};
+				HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
+				//ijc_detector.hv_digipot_value = data[0]<<8 | data[1];
+			}
+		}
+		else if (ijc_detector.hv_targate_value < max6911_measured_voltage)
+		{
+			if (ijc_detector.hv_digipot_value >= 1)
+			{
+				// If the target is less than the current value
+				ijc_detector.hv_digipot_value --;
+
+				// Write the digipot value - with 5 attempts
+				tx_data[1] = ijc_detector.hv_digipot_value;
+				//uint8_t command[2] = {0x00, 0x00};
+				//uint8_t data[2]    = {0x00, 0x00};
+				HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
+				//ijc_detector.hv_digipot_value = data[0]<<8 | data[1];
+			}
+		}
+		ijc_detector.ramp_flag  = false;
+	}
+}
+
+
+
 //************************************
 //            HV
 //************************************
 
-void ht_enable_on(void)
+// Board enable functions
+void ht_enable_set(bool gpio_state)
 {
-  HAL_GPIO_WritePin(ENABLE_HT_GPIO_Port, ENABLE_HT_Pin, GPIO_PIN_SET);
-  //GPIOB->BSRR = 0x00000080;   // CEA enable high
+	HAL_GPIO_WritePin(ENABLE_HT_GPIO_Port, ENABLE_HT_Pin, gpio_state);
 }
-
-void ht_enable_off(void)
-{
-  HAL_GPIO_WritePin(ENABLE_HT_GPIO_Port, ENABLE_HT_Pin, GPIO_PIN_RESET);
-  //GPIOB->BSRR = 0x00800000;   // CEA enable low
-}
-
 
 //************************************
 //            UCD PSB
@@ -834,15 +933,6 @@ bool ijc_board_enable_get(void)
 {
 	return(HAL_GPIO_ReadPin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin));
 }
-
-
-void ijc_dssd_ramp_loop(void)
-{
-	//
-
-}
-
-
 
 HAL_StatusTypeDef ijc_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX)
 {
@@ -1157,7 +1247,10 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
 			{
 				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
-				status =  EXIT_FAILURE;
+				status =  EXIT_FAILURE;void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
+				{
+				    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_13);
+				}
 				return(status);
 			}
 			break;
@@ -1258,7 +1351,7 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 		{
 			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
 			{
-				i2c_slv_tx.data = ijc_detector.hv_voltage_value;        // Prepare the date into the transmit
+				i2c_slv_tx.data = ijc_detector.hv_targate_value;        // Prepare the date into the transmit
 				return(status);
 			}
 			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
@@ -1266,7 +1359,7 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 				if(i2c_slv_rx.bytes.data_byte_msb <= 0x0F)
 				{
 					// Read the data from the buffer
-					ijc_detector.hv_voltage_value = (i2c_slv_rx.bytes.data_byte_msb << 8) |
+					ijc_detector.hv_targate_value = (i2c_slv_rx.bytes.data_byte_msb << 8) |
 													 i2c_slv_rx.bytes.data_byte_lsb;
 					i2c_slv_tx.data = CMD_SUCCESS_RESP;
 					return(status);
@@ -1429,6 +1522,13 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *I2cHandle)
   {
     Error_Handler();
   }
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
+{
+	counter ++;
+	ijc_detector.ramp_flag = true;
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
 }
 
 /* USER CODE END 4 */

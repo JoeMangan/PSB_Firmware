@@ -28,9 +28,10 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
-#include "max9611.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stdbool.h"
 
 /* USER CODE END Includes */
 
@@ -79,6 +80,8 @@ void Error_Handler(void);
 #define ENABLE_HT_GPIO_Port GPIOB
 #define LD4_Pin GPIO_PIN_13
 #define LD4_GPIO_Port GPIOB
+#define TIMING_PIN_Pin GPIO_PIN_6
+#define TIMING_PIN_GPIO_Port GPIOC
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
@@ -112,6 +115,8 @@ void Error_Handler(void);
 #define ADDR_IJC_MAX9611_2      	  0b11100010    // The -2V supply  (U12 on the schematic)
 #define ADDR_IJC_MAX9611_HV_CURRENT   0b11100110    // The HV current  (U13 on the schematic)
 #define ADDR_IJC_MAX9611_HV_VOLTAGE   0b11100100    // The HV voltage  (U14 on the schematic)
+#define ADDR_IJC_DIGIPOT			  0b01011000	// The IJC Digipot (U5  on the schematic)
+
 
 // I2C slv command list
 // --------------------------------------
@@ -169,7 +174,9 @@ typedef union{
 
 typedef struct
 {
-	uint16_t hv_voltage_value;
+	bool     ramp_flag;
+	uint8_t  hv_digipot_value;
+	uint16_t hv_targate_value;
 	uint16_t board_enable_state;
 } _detector;
 
