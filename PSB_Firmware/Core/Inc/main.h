@@ -118,6 +118,12 @@ void Error_Handler(void);
 #define ADDR_IJC_DIGIPOT			  0b01011000	// The IJC Digipot (U5  on the schematic)
 
 
+// IJC DSSD Detector
+#define IJC_MAX_DIGIPOT_VALUE 		150
+#define IJC_MIN_DIGIPOT_VALUE 		0
+#define IJC_LOWER_DEADBAND			43
+#define IJC_UPPER_DEADBAND			43
+
 // I2C slv command list
 // --------------------------------------
 #define CMD_READ							0x01

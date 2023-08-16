@@ -58,8 +58,7 @@ __IO uint32_t     Xfer_Complete = 0;
 #define I2C_RX_ATTEMPT_PERIOD 100 // ms
 #define I2C_RX_MAX_ATTEMPTS 5
 //------------------------------
-#define IJC_MAX_DIGIPOT_VALUE 150
-#define IJC_MIN_DIGIPOT_VALUE 0
+
 
 // Deleteme
 #define INCREMENT_DELAY 500
@@ -84,6 +83,8 @@ UART_HandleTypeDef huart2;
 HAL_StatusTypeDef status;
 _detector ucd_detector;
 _detector ijc_detector;
+_detector cea_detector;
+
 struct max6811_registers max6911;             		// A structure for storing the i2c recieved data
 uint8_t i2c_tx_buffer[TXBUFFERSIZE];				// Transmit buffer
 uint8_t i2c_rx_buffer[RXBUFFERSIZE];				// Recieve buffer
@@ -106,15 +107,17 @@ static void MX_TIM2_Init(void);
 // General Functionality
 // -------------------------
 void copy_array(volatile uint8_t *source, volatile uint8_t *dest, uint16_t count);
-HAL_StatusTypeDef i2c_write_cmd_data(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
+//HAL_StatusTypeDef i2c_write_cmd_data(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
 bool i2c_slv_cmd_rx_tx_handle(void);
 uint16_t max6911_read (I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_msb, uint8_t cmd_lsb);
-void ijc_dssd_ramp_loop();
+bool ijc_detector_init(void);
+
+
+void ijc_dssd_ramp_loop(void);
+//void cea_dssd_ramp_loop(void);
 // -------------------------
 // GPIO and Board Enables
 // -------------------------
-//void ht_enable_on(void);
-//void ht_enable_off(void);
 void ht_enable_set(bool);
 void cea_enable_on(void);       // Revise
 void cea_enable_off(void);      // Revise
@@ -125,13 +128,13 @@ bool ijc_board_enable_get(void);
 
 // I2C Slave Stuff
 // -------------------------
-HAL_StatusTypeDef i2c_write_cmd_data(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
+//HAL_StatusTypeDef i2c_write_cmd_data(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
 HAL_StatusTypeDef i2c_read(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX);
 HAL_StatusTypeDef i2c_write(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
 HAL_StatusTypeDef i2c_write_read(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX);
 HAL_StatusTypeDef ucd_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
 HAL_StatusTypeDef ucd_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX);
-HAL_StatusTypeDef ucd_i2c_write_cmd_data(uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
+//HAL_StatusTypeDef ucd_i2c_write_cmd_data(uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX);
 HAL_StatusTypeDef ucd_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX);
 HAL_StatusTypeDef ijc_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX);
 HAL_StatusTypeDef ijc_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX);
@@ -201,53 +204,27 @@ int main(void)
   MX_I2C1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+
+
+  // Initialize the system
   i2c_slv_init(); // Initialize the I2C slave module
-  //ucd_init();     // Initialise the UCD detector
+  bool ijc_init_status = ijc_detector_init();
 
-
-
-
-  // Configure the MAX9611 device - Might need to review this
-  // Configure the CTRL_REG general settings (Assumed general settings)
-
-  //while(1);
-
-  // Initalise the IJC lab detector
-  ijc_detector.ramp_flag            = 0;
-
-  ijc_detector.hv_max_digipot_value = IJC_MAX_DIGIPOT_VALUE - 1;
-  ijc_detector.hv_min_digipot_value = IJC_MIN_DIGIPOT_VALUE - 1;
-  ijc_detector.hv_lower_deadband = 43;
-  ijc_detector.hv_upper_deadband = 43;
-  ijc_detector.hv_digipot_value = 0;
-  ijc_detector.hv_targate_value = 0;
-  ijc_detector.board_enable_state = 0;
-  ijc_detector.hv_loop_enable = 1;
-
-
-  // Configure the boards
-  ht_enable_set(GPIO_PIN_RESET);
-  //ucd_board_enable_set(GPIO_PIN_SET);
-  ijc_board_enable_set(GPIO_PIN_SET);
-
-  HAL_Delay(500);
-
-  // Reset the digipot value to 0
-  uint8_t command[2] = {0x00, 0x00};
-  //uint8_t data[2]    = {0x00, 0x00};
-  HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &command[0], 2, &ijc_detector.hv_digipot_value, 1);
-  //ijc_detector.hv_digipot_value = data;
-
-  if (ijc_detector.hv_digipot_value != 0)
+  if(ijc_init_status == EXIT_FAILURE)
   {
-	  while(1); // SAFTY CATCH FOR TESTING
+	  while(1);
   }
 
-  // Enable the HV pin
   ht_enable_set(GPIO_PIN_SET);
+
+
+
+
 
   // Start the timer
   HAL_TIM_Base_Start_IT(&htim2);
+
+
 
   /* USER CODE END 2 */
 
@@ -256,6 +233,7 @@ int main(void)
   while (1)
   {
 	  ijc_dssd_ramp_loop();
+	  //cea_dssd_ramp_loop();
 
 	  if (Xfer_Complete ==1)                            // Check for the I2C read complete to have been executed
 	  {
@@ -682,6 +660,8 @@ void copy_array(volatile uint8_t *source, volatile uint8_t *dest, uint16_t count
     }
 }
 
+// ###############################################
+/*
 HAL_StatusTypeDef i2c_write_cmd_data(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX)
 {
 	uint8_t out_ptr[10] = {0x00};
@@ -692,6 +672,8 @@ HAL_StatusTypeDef i2c_write_cmd_data(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, 
 	HAL_StatusTypeDef ret = HAL_I2C_Master_Transmit(hi2c, dev_addr, out_ptr, countTX + 1, I2C_TIMEOUT_DURATION);
 	return(ret);
 }
+*/
+// ###############################################
 
 HAL_StatusTypeDef i2c_read(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX)
 {
@@ -745,18 +727,46 @@ uint16_t max6911_read(I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_
 {
 	uint16_t temp_data = 0;
 	uint8_t rx_data[2] = {0x00, 0x00};
+	uint8_t tx_data[2] = {0x00, 0x00};
 
 	// Init the device ctrl reg1
 	max6911_set_ctrl1_register(INIT_WITH_CURRENT_GAIN_8);
-	// Write to the control register 1 and 2
-	status = i2c_write_cmd_data(hi2c, device_addr, CONTROL_REGISTER_1, &max6911.ctrl_reg_1.byte, 2);
-	status = i2c_write_cmd_data(hi2c, device_addr, CONTROL_REGISTER_2, &max6911.ctrl_reg_2.byte, 2);
 
+	// Write to the control register 1 and 2
+	tx_data[0] = CONTROL_REGISTER_1;
+	tx_data[1] = max6911.ctrl_reg_1.byte;
+	i2c_write(hi2c, device_addr, &tx_data[0], 2);
+	// -------------------------------------------
+	tx_data[0] = CONTROL_REGISTER_2;
+	tx_data[1] = max6911.ctrl_reg_2.byte;
+	i2c_write(hi2c, device_addr, &tx_data[0], 2);
+
+	// #############################################################################
+	// The functions below do not work!
+	// status = i2c_write_cmd_data
+	// status = i2c_write_cmd_data(hi2c, device_addr, CONTROL_REGISTER_1, &max6911.ctrl_reg_1.byte, 1);
+	// status = i2c_write_cmd_data(hi2c, device_addr, CONTROL_REGISTER_2, &max6911.ctrl_reg_2.byte, 1);
+	// #############################################################################
 
 	// Set up the device for normal fast read operation
 	max6911_set_ctrl1_register(FASTREAD_NORMAL_OPERATION);
-	// Set up the read for MSB and LSB
 
+	// Write to the control register 1 and 2
+	tx_data[0] = CONTROL_REGISTER_1;
+	tx_data[1] = max6911.ctrl_reg_1.byte;
+	i2c_write(hi2c, device_addr, &tx_data[0], 2);
+	// -------------------------------------------
+	tx_data[0] = CONTROL_REGISTER_2;
+	tx_data[1] = max6911.ctrl_reg_2.byte;
+	i2c_write(hi2c, device_addr, &tx_data[0], 2);
+
+	// #############################################################################
+	// Write to the control register 1 and 2
+	// status = i2c_write_cmd_data(hi2c, device_addr, CONTROL_REGISTER_1, &max6911.ctrl_reg_1.byte, 1);
+	// status = i2c_write_cmd_data(hi2c, device_addr, CONTROL_REGISTER_2, &max6911.ctrl_reg_2.byte, 1);
+	// #############################################################################
+
+	// Set up the read for MSB and LSB
 	status = i2c_write_read(hi2c, device_addr, &cmd_msb, 1, &rx_data[0], 1);
 	status = i2c_write_read(hi2c, device_addr, &cmd_lsb, 1, &rx_data[1], 1);
 
@@ -798,6 +808,19 @@ void max6911_set_ctrl1_register(_max6911_ctrl selector)
 	}
 }
 
+
+
+
+
+//************************************
+//            HV
+//************************************
+
+// Board enable functions
+void ht_enable_set(bool gpio_state)
+{
+	HAL_GPIO_WritePin(ENABLE_HT_GPIO_Port, ENABLE_HT_Pin, gpio_state);
+}
 
 void ijc_dssd_ramp_loop(void)
 {
@@ -869,17 +892,64 @@ void ijc_dssd_ramp_loop(void)
 }
 
 
-
-//************************************
-//            HV
-//************************************
-
-// Board enable functions
-void ht_enable_set(bool gpio_state)
+/*
+void cea_dssd_ramp_loop(void)
 {
-	HAL_GPIO_WritePin(ENABLE_HT_GPIO_Port, ENABLE_HT_Pin, gpio_state);
-}
+	// Control for the ramp up/down of the CEA voltage
 
+	uint16_t max6911_measured_voltage = 0;
+	uint8_t tx_data[2] = {0x00, 0x00};
+	uint8_t rx_data = 0;
+
+
+	if(cea_detector.ramp_flag == true)
+	{
+		// Read the MAX9611 voltage value
+		max6911_measured_voltage = max6911_read(&hi2c2, ADDR_CEA_MAX9611_HV_VOLTAGE, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
+
+		// Shift the measured voltage down by 4 bits
+		max6911_measured_voltage = max6911_measured_voltage >> 4;
+
+		// Get the current digipot value
+		status = cea_i2c_read(ADDR_CEA_DIGIPOT, &cea_detector.hv_digipot_value, 1); 						// Delay if re-attempting I2C Operation
+		//cea_detector.hv_digipot_value = rx_data;
+
+		// Check if the read value is greater than or less than the target value
+		// This gets the direction of the ramp (up/down)
+		if(cea_detector.hv_targate_value > max6911_measured_voltage)
+		{
+			// If the target is greater than the current value, increment the digipot value
+			if (cea_detector.hv_digipot_value <= 149)
+			{
+				cea_detector.hv_digipot_value ++;
+
+				// Write the digipot value - with 5 attempts
+				tx_data[1] = cea_detector.hv_digipot_value;
+				//uint8_t command[2] = {0x00, 0x00};
+				//uint8_t data[2]    = {0x00, 0x00};
+				HAL_StatusTypeDef status = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &tx_data[0], 2, &cea_detector.hv_digipot_value, 1);
+				//cea_detector.hv_digipot_value = data[0]<<8 | data[1];
+			}
+		}
+		else if (cea_detector.hv_targate_value < max6911_measured_voltage)
+		{
+			if (cea_detector.hv_digipot_value >= 1)
+			{
+				// If the target is less than the current value
+				cea_detector.hv_digipot_value --;
+
+				// Write the digipot value - with 5 attempts
+				tx_data[1] = cea_detector.hv_digipot_value;
+				//uint8_t command[2] = {0x00, 0x00};
+				//uint8_t data[2]    = {0x00, 0x00};
+				HAL_StatusTypeDef status = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &tx_data[0], 2, &cea_detector.hv_digipot_value, 1);
+				//cea_detector.hv_digipot_value = data[0]<<8 | data[1];
+			}
+		}
+		cea_detector.ramp_flag  = false;
+	}
+}
+*/
 //************************************
 //            UCD PSB
 //************************************
@@ -888,11 +958,14 @@ void ht_enable_set(bool gpio_state)
 void ucd_board_enable_set(bool gpio_state)
 {
 	HAL_GPIO_WritePin(ENABLE_5_UCD_GPIO_Port, ENABLE_5_UCD_Pin, gpio_state);
+	ucd_detector.board_enable_state = gpio_state;
+
 }
 
 bool ucd_board_enable_get(void)
 {
-	return(HAL_GPIO_ReadPin(ENABLE_5_UCD_GPIO_Port, ENABLE_5_UCD_Pin));
+	ucd_detector.board_enable_state = HAL_GPIO_ReadPin(ENABLE_5_UCD_GPIO_Port, ENABLE_5_UCD_Pin);
+	return(ucd_detector.board_enable_state);
 }
 
 HAL_StatusTypeDef ucd_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX)
@@ -909,8 +982,11 @@ HAL_StatusTypeDef ucd_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t count
 	return(ret);
 }
 
+// ###############################################
+/*
 HAL_StatusTypeDef ucd_i2c_write_cmd_data(uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX)
 {
+
 	uint8_t out_ptr[10] = {0x00};
 	out_ptr[0] = cmd;
 	copy_array(data, &out_ptr[1], countTX);
@@ -919,6 +995,8 @@ HAL_StatusTypeDef ucd_i2c_write_cmd_data(uint8_t dev_addr, uint8_t cmd, uint8_t 
 	HAL_StatusTypeDef ret = HAL_I2C_Master_Transmit(&hi2c3, dev_addr, out_ptr, countTX + 1, I2C_TIMEOUT_DURATION);
 	return(ret);
 }
+*/
+// ###############################################
 
 HAL_StatusTypeDef ucd_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX)
 {
@@ -955,15 +1033,62 @@ HAL_StatusTypeDef ucd_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 //            IJC PSB
 //************************************
 
+// Init function
+bool ijc_detector_init(void)
+{
+
+	// TODO - Add a status return - this is very important incase the init fails and the HV is enabled high!!!
+
+	bool status = EXIT_SUCCESS;
+
+	// Init the IJC lab detector
+	ijc_detector.ramp_flag            = 0;
+	ijc_detector.hv_max_digipot_value = IJC_MAX_DIGIPOT_VALUE - 1;
+	ijc_detector.hv_min_digipot_value = IJC_MIN_DIGIPOT_VALUE - 1;
+	ijc_detector.hv_lower_deadband 	  = IJC_LOWER_DEADBAND;
+	ijc_detector.hv_upper_deadband 	  = IJC_UPPER_DEADBAND;
+	ijc_detector.hv_digipot_value 	  = 0;
+	ijc_detector.hv_targate_value 	  = 0;
+	ijc_detector.board_enable_state   = 0;
+	ijc_detector.hv_loop_enable 	  = 1;
+
+
+	// Configure the board enable state
+	ht_enable_set(GPIO_PIN_RESET);
+	ijc_board_enable_set(GPIO_PIN_SET);
+
+	HAL_Delay(100);
+
+	// Reset the digipot value to 0
+	uint8_t command[2] = {0x00, 0x00};
+	HAL_StatusTypeDef digipot_set_stataus = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &command[0], 2, &ijc_detector.hv_digipot_value, 1);
+
+
+	if (ijc_detector.hv_digipot_value != 0 || digipot_set_stataus == HAL_ERROR)
+	{
+		// Disable the loop enable flag
+		ijc_detector.hv_loop_enable = false;
+		status = EXIT_FAILURE;
+		return(status);
+	}
+	else
+	{
+		status = EXIT_SUCCESS;
+		return(status);
+	}
+}
+
 // Board enable functions
 void ijc_board_enable_set(bool gpio_state)
 {
 	HAL_GPIO_WritePin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin, gpio_state);
+	ijc_detector.board_enable_state = gpio_state;
 }
 
 bool ijc_board_enable_get(void)
 {
-	return(HAL_GPIO_ReadPin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin));
+	ijc_detector.board_enable_state = HAL_GPIO_ReadPin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin);
+	return(ijc_detector.board_enable_state);
 }
 
 HAL_StatusTypeDef ijc_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX)
@@ -980,6 +1105,8 @@ HAL_StatusTypeDef ijc_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t count
 	return(ret);
 }
 
+// ###############################################
+/*
 HAL_StatusTypeDef ijc_i2c_write_cmd_data(uint8_t dev_addr, uint8_t cmd, uint8_t *data, uint16_t countTX)
 {
 	uint8_t out_ptr[10] = {0x00};
@@ -990,6 +1117,8 @@ HAL_StatusTypeDef ijc_i2c_write_cmd_data(uint8_t dev_addr, uint8_t cmd, uint8_t 
 	HAL_StatusTypeDef ret = HAL_I2C_Master_Transmit(&hi2c2, dev_addr, out_ptr, countTX + 1, I2C_TIMEOUT_DURATION);
 	return(ret);
 }
+*/
+// ###############################################
 
 HAL_StatusTypeDef ijc_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX, uint8_t *in_ptr, uint16_t countRX)
 {
@@ -1309,7 +1438,7 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
 			{
 				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
-				status =  EXIT_FAILURE;void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
+				status =  EXIT_FAILURE;
 				{
 				    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_13);
 				}
