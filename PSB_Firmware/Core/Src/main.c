@@ -243,7 +243,7 @@ int main(void)
 
 		  i2c_slv_cmd_rx_tx_handle();
 
-		  HAL_Delay(1); 								  // Delay for 1 ms
+		  HAL_Delay(1); 								// Delay for 1 ms
 		  if(HAL_I2C_EnableListen_IT(&hi2c1) != HAL_OK) // Put I2C peripheral in listen mode process
 		  {
 			  Error_Handler();
@@ -778,8 +778,6 @@ void ijc_dssd_ramp_loop(void)
 
 	uint16_t max6911_measured_voltage = 0;
 	uint8_t tx_data[2] = {0x00, 0x00};
-	uint8_t rx_data = 0;
-
 
 	if(ijc_detector.ramp_flag == true && ijc_detector.hv_loop_enable == true)
 	{
@@ -791,7 +789,6 @@ void ijc_dssd_ramp_loop(void)
 
 		// Get the current digipot value
 		status = ijc_i2c_read(ADDR_IJC_DIGIPOT, &ijc_detector.hv_digipot_value, 1); 						// Delay if re-attempting I2C Operation
-		//ijc_detector.hv_digipot_value = rx_data;
 
 		// Check if the read value is greater than or less than the target value
 		// This gets the direction of the ramp (up/down)
@@ -804,10 +801,7 @@ void ijc_dssd_ramp_loop(void)
 
 				// Write the digipot value - with 5 attempts
 				tx_data[1] = ijc_detector.hv_digipot_value;
-				//uint8_t command[2] = {0x00, 0x00};
-				//uint8_t data[2]    = {0x00, 0x00};
 				HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
-				//ijc_detector.hv_digipot_value = data[0]<<8 | data[1];
 			}
 		}
 		else if ((ijc_detector.hv_targate_value < max6911_measured_voltage) && (max6911_measured_voltage > (ijc_detector.hv_targate_value + ijc_detector.hv_upper_deadband)))
@@ -819,10 +813,8 @@ void ijc_dssd_ramp_loop(void)
 
 				// Write the digipot value - with 5 attempts
 				tx_data[1] = ijc_detector.hv_digipot_value;
-				//uint8_t command[2] = {0x00, 0x00};
-				//uint8_t data[2]    = {0x00, 0x00};
+
 				HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
-				//ijc_detector.hv_digipot_value = data[0]<<8 | data[1];
 			}
 		}
 		else if((ijc_detector.hv_targate_value == 0) && (ijc_detector.hv_digipot_value > 0))
@@ -832,10 +824,8 @@ void ijc_dssd_ramp_loop(void)
 
 			// Write the digipot value - with 5 attempts
 			tx_data[1] = ijc_detector.hv_digipot_value;
-			//uint8_t command[2] = {0x00, 0x00};
-			//uint8_t data[2]    = {0x00, 0x00};
+
 			HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
-			//ijc_detector.hv_digipot_value = data[0]<<8 | data[1];
 		}
 		ijc_detector.ramp_flag  = false;
 	}
@@ -847,8 +837,6 @@ void cea_dssd_ramp_loop(void)
 
 	uint16_t max6911_measured_voltage = 0;
 	uint8_t tx_data[2] = {0x00, 0x00};
-	uint8_t rx_data = 0;
-
 
 	if(cea_detector.ramp_flag == true)
 	{
@@ -860,7 +848,6 @@ void cea_dssd_ramp_loop(void)
 
 		// Get the current digipot value
 		status = cea_i2c_read(ADDR_CEA_DIGIPOT, &cea_detector.hv_digipot_value, 1); 						// Delay if re-attempting I2C Operation
-		//cea_detector.hv_digipot_value = rx_data;
 
 		// Check if the read value is greater than or less than the target value
 		// This gets the direction of the ramp (up/down)
@@ -873,10 +860,8 @@ void cea_dssd_ramp_loop(void)
 
 				// Write the digipot value - with 5 attempts
 				tx_data[1] = cea_detector.hv_digipot_value;
-				//uint8_t command[2] = {0x00, 0x00};
-				//uint8_t data[2]    = {0x00, 0x00};
+
 				HAL_StatusTypeDef status = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &tx_data[0], 2, &cea_detector.hv_digipot_value, 1);
-				//cea_detector.hv_digipot_value = data[0]<<8 | data[1];
 			}
 		}
 		else if (cea_detector.hv_targate_value < max6911_measured_voltage)
@@ -888,10 +873,8 @@ void cea_dssd_ramp_loop(void)
 
 				// Write the digipot value - with 5 attempts
 				tx_data[1] = cea_detector.hv_digipot_value;
-				//uint8_t command[2] = {0x00, 0x00};
-				//uint8_t data[2]    = {0x00, 0x00};
+
 				HAL_StatusTypeDef status = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &tx_data[0], 2, &cea_detector.hv_digipot_value, 1);
-				//cea_detector.hv_digipot_value = data[0]<<8 | data[1];
 			}
 		}
 		cea_detector.ramp_flag  = false;
@@ -1117,8 +1100,6 @@ bool cea_board_enable_get(void)
 	return(cea_detector.board_enable_state);
 }
 
-
-
 HAL_StatusTypeDef cea_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t countTX)
 {
 	// Write bytes over I2C
@@ -1184,11 +1165,6 @@ HAL_StatusTypeDef cea_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 			// Set the digipot value to 0
 			// Disable the enable pin
 			// return(0)
-//}
-
-//bool ramp_up(void)
-//{
-	//
 //}
 
 
@@ -1654,8 +1630,13 @@ bool i2c_slv_cmd_rx_tx_handle(void)
     	// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
     	default:
-			break;
+			status =  EXIT_FAILURE;
+			return(status);
 	}
+
+    // If no command is matched - return failure
+	status =  EXIT_FAILURE;
+	return(status);
 }
 
 
