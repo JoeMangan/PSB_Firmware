@@ -90,7 +90,7 @@ uint8_t i2c_tx_buffer[TXBUFFERSIZE];				// Transmit buffer
 uint8_t i2c_rx_buffer[RXBUFFERSIZE];				// Recieve buffer
 _i2c_slv_rx i2c_slv_rx;                             // A union struct to hold the I2C slv RX
 _i2c_slv_tx i2c_slv_tx;                             // A union struct to hold the I2C slv tx
-_max6911_ctrl selector;
+//_max6911_ctrl selector;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -153,7 +153,7 @@ void i2c_slv_init(void);
 // -------------------------
 // MAX6911 Stuff
 // -------------------------
-void max6911_set_ctrl1_register(_max6911_ctrl selector);
+void max6911_set_ctrl1_register(uint8_t selector);
 // -------------------------
 // Deleteme
 // -------------------------
@@ -206,28 +206,28 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-
   // Initialize the system
   i2c_slv_init(); // Initialize the I2C slave module
-  bool ijc_init_status = ijc_detector_init();
 
-  if(ijc_init_status == EXIT_FAILURE)
+  //bool ijc_init_status = ijc_detector_init();
+
+  //if(ijc_init_status == EXIT_FAILURE)
+  //{
+//	  while(1);
+//  }
+
+
+  bool cea_init_status = cea_detector_init();
+
+  if(cea_init_status == EXIT_FAILURE)
   {
 	  while(1);
   }
 
-
-
   ht_enable_set(GPIO_PIN_SET);
-
-
-
-
 
   // Start the timer
   HAL_TIM_Base_Start_IT(&htim2);
-
-
 
   /* USER CODE END 2 */
 
@@ -235,7 +235,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  ijc_dssd_ramp_loop();
+	  //ijc_dssd_ramp_loop();
 	  cea_dssd_ramp_loop();
 
 	  if (Xfer_Complete ==1)                            // Check for the I2C read complete to have been executed
@@ -714,6 +714,7 @@ uint16_t max6911_read(I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_
 	i2c_write(hi2c, device_addr, &tx_data[0], 2);
 
 	// #############################################################################
+	// The functions below do not work!
 	// Write to the control register 1 and 2
 	// status = i2c_write_cmd_data(hi2c, device_addr, CONTROL_REGISTER_1, &max6911.ctrl_reg_1.byte, 1);
 	// status = i2c_write_cmd_data(hi2c, device_addr, CONTROL_REGISTER_2, &max6911.ctrl_reg_2.byte, 1);
@@ -729,7 +730,7 @@ uint16_t max6911_read(I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_
 }
 
 
-void max6911_set_ctrl1_register(_max6911_ctrl selector)
+void max6911_set_ctrl1_register(uint8_t selector)
 {
 
 	switch(selector)
@@ -743,6 +744,7 @@ void max6911_set_ctrl1_register(_max6911_ctrl selector)
 			max6911.ctrl_reg_1.bits.MUX   = CHANNEL_A_GAIN_8x_DEC;
 			max6911.ctrl_reg_2.bits.DTIM  = DTIM_1_MS_BITS_DEC;
 			max6911.ctrl_reg_2.bits.RTIM  = RTIM_50_MS_BITS_DEC;
+			break;
 		}
 		case(FASTREAD_NORMAL_OPERATION):
 		{
@@ -753,6 +755,7 @@ void max6911_set_ctrl1_register(_max6911_ctrl selector)
 			max6911.ctrl_reg_1.bits.MUX   = CHANNEL_FAST_READ_DEC;
 			max6911.ctrl_reg_2.bits.DTIM  = DTIM_1_MS_BITS_DEC;
 			max6911.ctrl_reg_2.bits.RTIM  = RTIM_50_MS_BITS_DEC;
+			break;
 		}
 		// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
@@ -831,6 +834,9 @@ void ijc_dssd_ramp_loop(void)
 	}
 }
 
+
+
+
 void cea_dssd_ramp_loop(void)
 {
 	// Control for the ramp up/down of the CEA voltage
@@ -838,10 +844,10 @@ void cea_dssd_ramp_loop(void)
 	uint16_t max6911_measured_voltage = 0;
 	uint8_t tx_data[2] = {0x00, 0x00};
 
-	if(cea_detector.ramp_flag == true)
+	if(cea_detector.ramp_flag == true && cea_detector.hv_loop_enable == true)
 	{
 		// Read the MAX9611 voltage value
-		max6911_measured_voltage = max6911_read(&hi2c2, ADDR_CEA_MAX9611_HV_VOLTAGE, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
+		max6911_measured_voltage = max6911_read(&hi2c3, ADDR_CEA_MAX9611_HV_VOLTAGE, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
 
 		// Shift the measured voltage down by 4 bits
 		max6911_measured_voltage = max6911_measured_voltage >> 4;
@@ -851,7 +857,7 @@ void cea_dssd_ramp_loop(void)
 
 		// Check if the read value is greater than or less than the target value
 		// This gets the direction of the ramp (up/down)
-		if(cea_detector.hv_targate_value > max6911_measured_voltage)
+		if((cea_detector.hv_targate_value > max6911_measured_voltage) && (max6911_measured_voltage < (cea_detector.hv_targate_value - cea_detector.hv_lower_deadband)))
 		{
 			// If the target is greater than the current value, increment the digipot value
 			if (cea_detector.hv_digipot_value <= 149)
@@ -860,11 +866,10 @@ void cea_dssd_ramp_loop(void)
 
 				// Write the digipot value - with 5 attempts
 				tx_data[1] = cea_detector.hv_digipot_value;
-
 				HAL_StatusTypeDef status = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &tx_data[0], 2, &cea_detector.hv_digipot_value, 1);
 			}
 		}
-		else if (cea_detector.hv_targate_value < max6911_measured_voltage)
+		else if ((cea_detector.hv_targate_value < max6911_measured_voltage) && (max6911_measured_voltage > (cea_detector.hv_targate_value + cea_detector.hv_upper_deadband)))
 		{
 			if (cea_detector.hv_digipot_value >= 1)
 			{
@@ -876,6 +881,16 @@ void cea_dssd_ramp_loop(void)
 
 				HAL_StatusTypeDef status = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &tx_data[0], 2, &cea_detector.hv_digipot_value, 1);
 			}
+		}
+		else if((cea_detector.hv_targate_value == 0) && (cea_detector.hv_digipot_value > 0))
+		{
+			// If the value is 0 - continue ramping down to 0 on the digipot
+			cea_detector.hv_digipot_value --;
+
+			// Write the digipot value - with 5 attempts
+			tx_data[1] = cea_detector.hv_digipot_value;
+
+			HAL_StatusTypeDef status = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &tx_data[0], 2, &cea_detector.hv_digipot_value, 1);
 		}
 		cea_detector.ramp_flag  = false;
 	}
@@ -1009,6 +1024,52 @@ bool ijc_detector_init(void)
 		return(status);
 	}
 }
+
+
+bool cea_detector_init(void)
+{
+
+	// TODO - Add a status return - this is very important incase the init fails and the HV is enabled high!!!
+
+	bool status = EXIT_SUCCESS;
+
+	// Init the CEA lab detector
+	cea_detector.ramp_flag            = 0;
+	cea_detector.hv_max_digipot_value = CEA_MAX_DIGIPOT_VALUE - 1;
+	cea_detector.hv_min_digipot_value = CEA_MIN_DIGIPOT_VALUE - 1;
+	cea_detector.hv_lower_deadband 	  = CEA_LOWER_DEADBAND;
+	cea_detector.hv_upper_deadband 	  = CEA_UPPER_DEADBAND;
+	cea_detector.hv_digipot_value 	  = 0;
+	cea_detector.hv_targate_value 	  = 0;
+	cea_detector.board_enable_state   = 0;
+	cea_detector.hv_loop_enable 	  = 1;
+
+	// Configure the board enable state
+	ht_enable_set(GPIO_PIN_RESET);
+	cea_board_enable_set(GPIO_PIN_SET);
+
+	HAL_Delay(100);
+
+	// Reset the digipot value to 0
+	uint8_t command[2] = {0x00, 0x00};
+	HAL_StatusTypeDef digipot_set_stataus = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &command[0], 2, &cea_detector.hv_digipot_value, 1);
+
+
+	if (cea_detector.hv_digipot_value != 0 || digipot_set_stataus == HAL_ERROR)
+	{
+		// Disable the loop enable flag
+		cea_detector.hv_loop_enable = false;
+		status = EXIT_FAILURE;
+		return(status);
+	}
+	else
+	{
+		status = EXIT_SUCCESS;
+		return(status);
+	}
+}
+
+
 
 // Board enable functions
 void ijc_board_enable_set(bool gpio_state)
@@ -1331,7 +1392,7 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
 			{
 				uint16_t dataread = 0;
-				dataread = max6911_read(&hi2c2, ADDR_CEA_MAX9611_HV_VOLTAGE, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
+				dataread = max6911_read(&hi2c3, ADDR_CEA_MAX9611_HV_VOLTAGE, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
 
 				// Load the MSB and LSB into the TX register buffer
 				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
@@ -1354,7 +1415,7 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 			{
 				// read the UCD max6911 AVDD device
 				uint16_t dataread = 0;
-				dataread = max6911_read(&hi2c2, ADDR_CEA_MAX9611_HV_CURRENT, CSA_DATA_BYTE_MSB, CSA_DATA_BYTE_LSB);
+				dataread = max6911_read(&hi2c3, ADDR_CEA_MAX9611_HV_CURRENT, CSA_DATA_BYTE_MSB, CSA_DATA_BYTE_LSB);
 
 				// Load the MSB and LSB into the TX register buffer
 				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
