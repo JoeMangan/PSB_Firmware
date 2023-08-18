@@ -116,10 +116,10 @@ void Error_Handler(void);
 #define ADDR_IJC_MAX9611_HV_VOLTAGE   0b11100100    // The HV voltage  (U14 on the schematic)
 #define ADDR_IJC_DIGIPOT			  0b01011000	// The IJC Digipot (U5  on the schematic)
 // Dev addrs on the CEA board
-#define ADDR_CEA_MAX9611_HV_CURRENT   0xF0//E6 //0b11100110    // The HV current  ( - on the schematic)
-#define ADDR_CEA_MAX9611_HV_VOLTAGE   0xEE//E0 //0b11100000    // The HV voltage  ( - on the schematic)
+#define ADDR_CEA_MAX9611_HV_CURRENT   0xE6 //0b11100110    // The HV current  ( - on the schematic)   F0 - the Flight board
+#define ADDR_CEA_MAX9611_HV_VOLTAGE   0xE0 //0b11100000    // The HV voltage  ( - on the schematic)   EE - the Flight board
 #define ADDR_CEA_DIGIPOT			  0b01011000	// The CEA Digipot ( - on the schematic)
-
+									  //0101100
 
 
 // IJC DSSD Detector Definitions
@@ -128,7 +128,7 @@ void Error_Handler(void);
 #define IJC_LOWER_DEADBAND			43
 #define IJC_UPPER_DEADBAND			43
 // ----------------------------------------
-#define CEA_MAX_DIGIPOT_VALUE 		150
+#define CEA_MAX_DIGIPOT_VALUE 		200
 #define CEA_MIN_DIGIPOT_VALUE 		0
 #define CEA_LOWER_DEADBAND			43
 #define CEA_UPPER_DEADBAND			43

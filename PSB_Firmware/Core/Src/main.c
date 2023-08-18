@@ -852,6 +852,8 @@ void cea_dssd_ramp_loop(void)
 		// Shift the measured voltage down by 4 bits
 		max6911_measured_voltage = max6911_measured_voltage >> 4;
 
+		//HAL_Delay(100);
+
 		// Get the current digipot value
 		status = cea_i2c_read(ADDR_CEA_DIGIPOT, &cea_detector.hv_digipot_value, 1); 						// Delay if re-attempting I2C Operation
 
@@ -1171,7 +1173,19 @@ HAL_StatusTypeDef cea_i2c_write(uint8_t dev_addr, uint8_t *out_ptr, uint16_t cou
 HAL_StatusTypeDef cea_i2c_read(uint8_t dev_addr, uint8_t *in_ptr, uint16_t countRX)
 {
 	// Read bytes over I2C
-	HAL_StatusTypeDef ret = HAL_I2C_Master_Receive(&hi2c3, dev_addr, in_ptr, countRX, I2C_TIMEOUT_DURATION);
+	HAL_StatusTypeDef ret = HAL_OK;
+	uint8_t tx_attemps = I2C_TX_MAX_ATTEMPTS;
+	uint8_t rx_attemps = I2C_RX_MAX_ATTEMPTS;
+
+	//HAL_StatusTypeDef ret = HAL_I2C_Master_Receive(&hi2c3, dev_addr, in_ptr, countRX, I2C_TIMEOUT_DURATION);
+	do
+	{
+		// Read operation
+		ret =  HAL_I2C_Master_Receive(&hi2c3, dev_addr, in_ptr, countRX, I2C_TIMEOUT_DURATION); // Delay if re-attempting I2C Operation
+		if(rx_attemps < I2C_RX_MAX_ATTEMPTS){HAL_Delay(I2C_RX_ATTEMPT_PERIOD);}	// Perform I2C operation
+		rx_attemps --;															// Decrement the attempt counter
+	}while((ret == HAL_ERROR) && (rx_attemps > 0));							// Check the I2C operation status
+
 	return(ret);
 }
 
@@ -1191,6 +1205,8 @@ HAL_StatusTypeDef cea_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 	}while((status == HAL_ERROR) && (tx_attemps > 0));						    // Check the I2C operation status
 
 	if(status == HAL_ERROR){return(status);}
+
+	HAL_Delay(5);
 
 	do
 	{
