@@ -553,7 +553,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, SMPS_EN_Pin|SMPS_V1_Pin|SMPS_SW_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, ENABLE_HT_Pin|LD4_Pin|ENABLE_1_FPGA_Pin|ENABLE_2_IJC_Pin
+  HAL_GPIO_WritePin(GPIOB, ENABLE_HT_CEA_DSSD_Pin|LD4_Pin|ENABLE_HT_IJC_DSSD_Pin|ENABLE_2_IJC_Pin
                           |ENABLE_3_CEA_Pin|ENABLE_4_Pin|ENABLE_5_UCD_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -578,9 +578,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(SMPS_PG_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : ENABLE_HT_Pin LD4_Pin ENABLE_1_FPGA_Pin ENABLE_2_IJC_Pin
+  /*Configure GPIO pins : ENABLE_HT_CEA_DSSD_Pin LD4_Pin ENABLE_HT_IJC_DSSD_Pin ENABLE_2_IJC_Pin
                            ENABLE_3_CEA_Pin ENABLE_4_Pin ENABLE_5_UCD_Pin */
-  GPIO_InitStruct.Pin = ENABLE_HT_Pin|LD4_Pin|ENABLE_1_FPGA_Pin|ENABLE_2_IJC_Pin
+  GPIO_InitStruct.Pin = ENABLE_HT_CEA_DSSD_Pin|LD4_Pin|ENABLE_HT_IJC_DSSD_Pin|ENABLE_2_IJC_Pin
                           |ENABLE_3_CEA_Pin|ENABLE_4_Pin|ENABLE_5_UCD_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;

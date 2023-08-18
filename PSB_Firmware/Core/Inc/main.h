@@ -75,8 +75,8 @@ void Error_Handler(void);
 #define SMPS_PG_GPIO_Port GPIOA
 #define SMPS_SW_Pin GPIO_PIN_7
 #define SMPS_SW_GPIO_Port GPIOA
-#define ENABLE_HT_Pin GPIO_PIN_12
-#define ENABLE_HT_GPIO_Port GPIOB
+#define ENABLE_HT_CEA_DSSD_Pin GPIO_PIN_12
+#define ENABLE_HT_CEA_DSSD_GPIO_Port GPIOB
 #define LD4_Pin GPIO_PIN_13
 #define LD4_GPIO_Port GPIOB
 #define TIMING_PIN_Pin GPIO_PIN_6
@@ -87,8 +87,8 @@ void Error_Handler(void);
 #define TCK_GPIO_Port GPIOA
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
-#define ENABLE_1_FPGA_Pin GPIO_PIN_5
-#define ENABLE_1_FPGA_GPIO_Port GPIOB
+#define ENABLE_HT_IJC_DSSD_Pin GPIO_PIN_5
+#define ENABLE_HT_IJC_DSSD_GPIO_Port GPIOB
 #define ENABLE_2_IJC_Pin GPIO_PIN_6
 #define ENABLE_2_IJC_GPIO_Port GPIOB
 #define ENABLE_3_CEA_Pin GPIO_PIN_7
