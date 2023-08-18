@@ -4355,51 +4355,54 @@ LOAD /opt/st/stm32cubeide_1.13.1/plugins/com.st.stm32cube.ide.mcu.externaltools.
                 0x0000000020000200                status
  *fill*         0x0000000020000201        0x3 
  .bss.ucd_detector
-                0x0000000020000204        0xc ./Core/Src/main.o
+                0x0000000020000204        0xe ./Core/Src/main.o
                 0x0000000020000204                ucd_detector
+ *fill*         0x0000000020000212        0x2 
  .bss.ijc_detector
-                0x0000000020000210        0xc ./Core/Src/main.o
-                0x0000000020000210                ijc_detector
+                0x0000000020000214        0xe ./Core/Src/main.o
+                0x0000000020000214                ijc_detector
+ *fill*         0x0000000020000222        0x2 
  .bss.cea_detector
-                0x000000002000021c        0xc ./Core/Src/main.o
-                0x000000002000021c                cea_detector
- .bss.max6911   0x0000000020000228        0xe ./Core/Src/main.o
-                0x0000000020000228                max6911
- *fill*         0x0000000020000236        0x2 
+                0x0000000020000224        0xe ./Core/Src/main.o
+                0x0000000020000224                cea_detector
+ *fill*         0x0000000020000232        0x2 
+ .bss.max6911   0x0000000020000234        0xe ./Core/Src/main.o
+                0x0000000020000234                max6911
+ *fill*         0x0000000020000242        0x2 
  .bss.i2c_tx_buffer
-                0x0000000020000238        0x2 ./Core/Src/main.o
-                0x0000000020000238                i2c_tx_buffer
- *fill*         0x000000002000023a        0x2 
- .bss.i2c_rx_buffer
-                0x000000002000023c        0x4 ./Core/Src/main.o
-                0x000000002000023c                i2c_rx_buffer
- .bss.i2c_slv_rx
-                0x0000000020000240        0x4 ./Core/Src/main.o
-                0x0000000020000240                i2c_slv_rx
- .bss.i2c_slv_tx
                 0x0000000020000244        0x2 ./Core/Src/main.o
-                0x0000000020000244                i2c_slv_tx
- .bss.counter   0x0000000020000246        0x1 ./Core/Src/main.o
-                0x0000000020000246                counter
- *fill*         0x0000000020000247        0x1 
- .bss.uwTick    0x0000000020000248        0x4 ./Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal.o
-                0x0000000020000248                uwTick
+                0x0000000020000244                i2c_tx_buffer
+ *fill*         0x0000000020000246        0x2 
+ .bss.i2c_rx_buffer
+                0x0000000020000248        0x4 ./Core/Src/main.o
+                0x0000000020000248                i2c_rx_buffer
+ .bss.i2c_slv_rx
+                0x000000002000024c        0x4 ./Core/Src/main.o
+                0x000000002000024c                i2c_slv_rx
+ .bss.i2c_slv_tx
+                0x0000000020000250        0x2 ./Core/Src/main.o
+                0x0000000020000250                i2c_slv_tx
+ .bss.counter   0x0000000020000252        0x1 ./Core/Src/main.o
+                0x0000000020000252                counter
+ *fill*         0x0000000020000253        0x1 
+ .bss.uwTick    0x0000000020000254        0x4 ./Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal.o
+                0x0000000020000254                uwTick
  *(COMMON)
-                0x000000002000024c                . = ALIGN (0x4)
-                0x000000002000024c                _ebss = .
-                0x000000002000024c                __bss_end__ = _ebss
+                0x0000000020000258                . = ALIGN (0x4)
+                0x0000000020000258                _ebss = .
+                0x0000000020000258                __bss_end__ = _ebss
 
 ._user_heap_stack
                 0x000000002000024c      0x604 load address 0x0000000008006e08
                 0x0000000020000250                . = ALIGN (0x8)
  *fill*         0x000000002000024c        0x4 
                 [!provide]                        PROVIDE (end = .)
-                0x0000000020000250                PROVIDE (_end = .)
-                0x0000000020000450                . = (. + _Min_Heap_Size)
- *fill*         0x0000000020000250      0x200 
-                0x0000000020000850                . = (. + _Min_Stack_Size)
- *fill*         0x0000000020000450      0x400 
-                0x0000000020000850                . = ALIGN (0x8)
+                0x0000000020000258                PROVIDE (_end = .)
+                0x0000000020000458                . = (. + _Min_Heap_Size)
+ *fill*         0x0000000020000258      0x200 
+                0x0000000020000858                . = (. + _Min_Stack_Size)
+ *fill*         0x0000000020000458      0x400 
+                0x0000000020000858                . = ALIGN (0x8)
 
 /DISCARD/
  libc.a(*)

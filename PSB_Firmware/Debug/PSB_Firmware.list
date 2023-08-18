@@ -21,31 +21,31 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, ALLOC, LOAD, DATA
   8 .data         0000000c  20000000  08006dfc  00020000  2**2
                   CONTENTS, ALLOC, LOAD, DATA
-  9 .bss          00000240  2000000c  08006e08  0002000c  2**2
+  9 .bss          0000024c  2000000c  08006fa4  0002000c  2**2
                   ALLOC
- 10 ._user_heap_stack 00000604  2000024c  08006e08  0002024c  2**0
+ 10 ._user_heap_stack 00000600  20000258  08006fa4  00020258  2**0
                   ALLOC
  11 .ARM.attributes 00000030  00000000  00000000  0002000c  2**0
                   CONTENTS, READONLY
  12 .comment      00000043  00000000  00000000  0002003c  2**0
                   CONTENTS, READONLY
- 13 .debug_info   00013ee4  00000000  00000000  0002007f  2**0
+ 13 .debug_info   00013ec4  00000000  00000000  0002007f  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_abbrev 000024ed  00000000  00000000  00033f63  2**0
+ 14 .debug_abbrev 000024ed  00000000  00000000  00033f43  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_aranges 000012c8  00000000  00000000  00036450  2**3
+ 15 .debug_aranges 000012c8  00000000  00000000  00036430  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_rnglists 00000ed8  00000000  00000000  00037718  2**0
+ 16 .debug_rnglists 00000ed8  00000000  00000000  000376f8  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_macro  00002b26  00000000  00000000  000385f0  2**0
+ 17 .debug_macro  00002b26  00000000  00000000  000385d0  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_line   000153f0  00000000  00000000  0003b116  2**0
+ 18 .debug_line   00015354  00000000  00000000  0003b0f6  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .debug_str    000d90cf  00000000  00000000  00050506  2**0
+ 19 .debug_str    000d90af  00000000  00000000  0005044a  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 20 .debug_frame  00005098  00000000  00000000  001295d8  2**2
+ 20 .debug_frame  00005094  00000000  00000000  001294fc  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 00000071  00000000  00000000  0012e670  2**0
+ 21 .debug_line_str 00000071  00000000  00000000  0012e590  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -1586,13 +1586,13 @@ uint16_t max6911_read(I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_
  8000b84:	89fb      	ldrh	r3, [r7, #14]
 
 }
- 8000b86:	4618      	mov	r0, r3
- 8000b88:	3710      	adds	r7, #16
- 8000b8a:	46bd      	mov	sp, r7
- 8000b8c:	bd80      	pop	{r7, pc}
- 8000b8e:	bf00      	nop
- 8000b90:	20000228 	.word	0x20000228
- 8000b94:	20000200 	.word	0x20000200
+ 8000b8a:	4618      	mov	r0, r3
+ 8000b8c:	3710      	adds	r7, #16
+ 8000b8e:	46bd      	mov	sp, r7
+ 8000b90:	bd80      	pop	{r7, pc}
+ 8000b92:	bf00      	nop
+ 8000b94:	20000234 	.word	0x20000234
+ 8000b98:	20000200 	.word	0x20000200
 
 08000b98 <max6911_set_ctrl1_register>:
 
@@ -1685,12 +1685,13 @@ void max6911_set_ctrl1_register(uint8_t selector)
  8000c2a:	bf00      	nop
 	}
 }
- 8000c2c:	bf00      	nop
- 8000c2e:	370c      	adds	r7, #12
- 8000c30:	46bd      	mov	sp, r7
- 8000c32:	f85d 7b04 	ldr.w	r7, [sp], #4
- 8000c36:	4770      	bx	lr
- 8000c38:	20000228 	.word	0x20000228
+ 8000c2e:	bf00      	nop
+ 8000c30:	370c      	adds	r7, #12
+ 8000c32:	46bd      	mov	sp, r7
+ 8000c34:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000c38:	4770      	bx	lr
+ 8000c3a:	bf00      	nop
+ 8000c3c:	20000234 	.word	0x20000234
 
 08000c3c <ht_enable_set>:
 //            HV
@@ -1721,6 +1722,179 @@ void ht_enable_set(bool gpio_state)
 
 
 
+
+		// Shift the measured voltage down by 4 bits
+		max6911_measured_voltage = max6911_measured_voltage >> 4;
+ 8000c94:	88fb      	ldrh	r3, [r7, #6]
+ 8000c96:	091b      	lsrs	r3, r3, #4
+ 8000c98:	80fb      	strh	r3, [r7, #6]
+
+		// Get the current digipot value
+		status = ijc_i2c_read(ADDR_IJC_DIGIPOT, &ijc_detector.hv_digipot_value, 1); 						// Delay if re-attempting I2C Operation
+ 8000c9a:	2201      	movs	r2, #1
+ 8000c9c:	493c      	ldr	r1, [pc, #240]	; (8000d90 <ijc_dssd_ramp_loop+0x12c>)
+ 8000c9e:	2058      	movs	r0, #88	; 0x58
+ 8000ca0:	f000 f9aa 	bl	8000ff8 <ijc_i2c_read>
+ 8000ca4:	4603      	mov	r3, r0
+ 8000ca6:	461a      	mov	r2, r3
+ 8000ca8:	4b3a      	ldr	r3, [pc, #232]	; (8000d94 <ijc_dssd_ramp_loop+0x130>)
+ 8000caa:	701a      	strb	r2, [r3, #0]
+
+		// Check if the read value is greater than or less than the target value
+		// This gets the direction of the ramp (up/down)
+		if((ijc_detector.hv_targate_value > max6911_measured_voltage) && (max6911_measured_voltage < (ijc_detector.hv_targate_value - ijc_detector.hv_lower_deadband)))
+ 8000cac:	4b36      	ldr	r3, [pc, #216]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000cae:	891b      	ldrh	r3, [r3, #8]
+ 8000cb0:	88fa      	ldrh	r2, [r7, #6]
+ 8000cb2:	429a      	cmp	r2, r3
+ 8000cb4:	d220      	bcs.n	8000cf8 <ijc_dssd_ramp_loop+0x94>
+ 8000cb6:	88fa      	ldrh	r2, [r7, #6]
+ 8000cb8:	4b33      	ldr	r3, [pc, #204]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000cba:	891b      	ldrh	r3, [r3, #8]
+ 8000cbc:	4619      	mov	r1, r3
+ 8000cbe:	4b32      	ldr	r3, [pc, #200]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000cc0:	795b      	ldrb	r3, [r3, #5]
+ 8000cc2:	1acb      	subs	r3, r1, r3
+ 8000cc4:	429a      	cmp	r2, r3
+ 8000cc6:	da17      	bge.n	8000cf8 <ijc_dssd_ramp_loop+0x94>
+		{
+			// If the target is greater than the current value, increment the digipot value
+			if (ijc_detector.hv_digipot_value <= 149)
+ 8000cc8:	4b2f      	ldr	r3, [pc, #188]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000cca:	799b      	ldrb	r3, [r3, #6]
+ 8000ccc:	2b95      	cmp	r3, #149	; 0x95
+ 8000cce:	d854      	bhi.n	8000d7a <ijc_dssd_ramp_loop+0x116>
+			{
+				ijc_detector.hv_digipot_value ++;
+ 8000cd0:	4b2d      	ldr	r3, [pc, #180]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000cd2:	799b      	ldrb	r3, [r3, #6]
+ 8000cd4:	3301      	adds	r3, #1
+ 8000cd6:	b2da      	uxtb	r2, r3
+ 8000cd8:	4b2b      	ldr	r3, [pc, #172]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000cda:	719a      	strb	r2, [r3, #6]
+
+				// Write the digipot value - with 5 attempts
+				tx_data[1] = ijc_detector.hv_digipot_value;
+ 8000cdc:	4b2a      	ldr	r3, [pc, #168]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000cde:	799b      	ldrb	r3, [r3, #6]
+ 8000ce0:	707b      	strb	r3, [r7, #1]
+				HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
+ 8000ce2:	4639      	mov	r1, r7
+ 8000ce4:	2301      	movs	r3, #1
+ 8000ce6:	9300      	str	r3, [sp, #0]
+ 8000ce8:	4b29      	ldr	r3, [pc, #164]	; (8000d90 <ijc_dssd_ramp_loop+0x12c>)
+ 8000cea:	2202      	movs	r2, #2
+ 8000cec:	2058      	movs	r0, #88	; 0x58
+ 8000cee:	f000 f99d 	bl	800102c <ijc_i2c_write_read>
+ 8000cf2:	4603      	mov	r3, r0
+ 8000cf4:	717b      	strb	r3, [r7, #5]
+			if (ijc_detector.hv_digipot_value <= 149)
+ 8000cf6:	e040      	b.n	8000d7a <ijc_dssd_ramp_loop+0x116>
+			}
+		}
+		else if ((ijc_detector.hv_targate_value < max6911_measured_voltage) && (max6911_measured_voltage > (ijc_detector.hv_targate_value + ijc_detector.hv_upper_deadband)))
+ 8000cf8:	4b23      	ldr	r3, [pc, #140]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000cfa:	891b      	ldrh	r3, [r3, #8]
+ 8000cfc:	88fa      	ldrh	r2, [r7, #6]
+ 8000cfe:	429a      	cmp	r2, r3
+ 8000d00:	d920      	bls.n	8000d44 <ijc_dssd_ramp_loop+0xe0>
+ 8000d02:	88fa      	ldrh	r2, [r7, #6]
+ 8000d04:	4b20      	ldr	r3, [pc, #128]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d06:	891b      	ldrh	r3, [r3, #8]
+ 8000d08:	4619      	mov	r1, r3
+ 8000d0a:	4b1f      	ldr	r3, [pc, #124]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d0c:	791b      	ldrb	r3, [r3, #4]
+ 8000d0e:	440b      	add	r3, r1
+ 8000d10:	429a      	cmp	r2, r3
+ 8000d12:	dd17      	ble.n	8000d44 <ijc_dssd_ramp_loop+0xe0>
+		{
+			if (ijc_detector.hv_digipot_value >= 1)
+ 8000d14:	4b1c      	ldr	r3, [pc, #112]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d16:	799b      	ldrb	r3, [r3, #6]
+ 8000d18:	2b00      	cmp	r3, #0
+ 8000d1a:	d02e      	beq.n	8000d7a <ijc_dssd_ramp_loop+0x116>
+			{
+				// If the target is less than the current value
+				ijc_detector.hv_digipot_value --;
+ 8000d1c:	4b1a      	ldr	r3, [pc, #104]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d1e:	799b      	ldrb	r3, [r3, #6]
+ 8000d20:	3b01      	subs	r3, #1
+ 8000d22:	b2da      	uxtb	r2, r3
+ 8000d24:	4b18      	ldr	r3, [pc, #96]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d26:	719a      	strb	r2, [r3, #6]
+
+				// Write the digipot value - with 5 attempts
+				tx_data[1] = ijc_detector.hv_digipot_value;
+ 8000d28:	4b17      	ldr	r3, [pc, #92]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d2a:	799b      	ldrb	r3, [r3, #6]
+ 8000d2c:	707b      	strb	r3, [r7, #1]
+
+				HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
+ 8000d2e:	4639      	mov	r1, r7
+ 8000d30:	2301      	movs	r3, #1
+ 8000d32:	9300      	str	r3, [sp, #0]
+ 8000d34:	4b16      	ldr	r3, [pc, #88]	; (8000d90 <ijc_dssd_ramp_loop+0x12c>)
+ 8000d36:	2202      	movs	r2, #2
+ 8000d38:	2058      	movs	r0, #88	; 0x58
+ 8000d3a:	f000 f977 	bl	800102c <ijc_i2c_write_read>
+ 8000d3e:	4603      	mov	r3, r0
+ 8000d40:	713b      	strb	r3, [r7, #4]
+			if (ijc_detector.hv_digipot_value >= 1)
+ 8000d42:	e01a      	b.n	8000d7a <ijc_dssd_ramp_loop+0x116>
+			}
+		}
+		else if((ijc_detector.hv_targate_value == 0) && (ijc_detector.hv_digipot_value > 0))
+ 8000d44:	4b10      	ldr	r3, [pc, #64]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d46:	891b      	ldrh	r3, [r3, #8]
+ 8000d48:	2b00      	cmp	r3, #0
+ 8000d4a:	d116      	bne.n	8000d7a <ijc_dssd_ramp_loop+0x116>
+ 8000d4c:	4b0e      	ldr	r3, [pc, #56]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d4e:	799b      	ldrb	r3, [r3, #6]
+ 8000d50:	2b00      	cmp	r3, #0
+ 8000d52:	d012      	beq.n	8000d7a <ijc_dssd_ramp_loop+0x116>
+		{
+			// If the value is 0 - continue ramping down to 0 on the digipot
+			ijc_detector.hv_digipot_value --;
+ 8000d54:	4b0c      	ldr	r3, [pc, #48]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d56:	799b      	ldrb	r3, [r3, #6]
+ 8000d58:	3b01      	subs	r3, #1
+ 8000d5a:	b2da      	uxtb	r2, r3
+ 8000d5c:	4b0a      	ldr	r3, [pc, #40]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d5e:	719a      	strb	r2, [r3, #6]
+
+			// Write the digipot value - with 5 attempts
+			tx_data[1] = ijc_detector.hv_digipot_value;
+ 8000d60:	4b09      	ldr	r3, [pc, #36]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d62:	799b      	ldrb	r3, [r3, #6]
+ 8000d64:	707b      	strb	r3, [r7, #1]
+
+			HAL_StatusTypeDef status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
+ 8000d66:	4639      	mov	r1, r7
+ 8000d68:	2301      	movs	r3, #1
+ 8000d6a:	9300      	str	r3, [sp, #0]
+ 8000d6c:	4b08      	ldr	r3, [pc, #32]	; (8000d90 <ijc_dssd_ramp_loop+0x12c>)
+ 8000d6e:	2202      	movs	r2, #2
+ 8000d70:	2058      	movs	r0, #88	; 0x58
+ 8000d72:	f000 f95b 	bl	800102c <ijc_i2c_write_read>
+ 8000d76:	4603      	mov	r3, r0
+ 8000d78:	70fb      	strb	r3, [r7, #3]
+		}
+		ijc_detector.ramp_flag  = false;
+ 8000d7a:	4b03      	ldr	r3, [pc, #12]	; (8000d88 <ijc_dssd_ramp_loop+0x124>)
+ 8000d7c:	2200      	movs	r2, #0
+ 8000d7e:	701a      	strb	r2, [r3, #0]
+	}
+}
+ 8000d80:	bf00      	nop
+ 8000d82:	3708      	adds	r7, #8
+ 8000d84:	46bd      	mov	sp, r7
+ 8000d86:	bd80      	pop	{r7, pc}
+ 8000d88:	20000214 	.word	0x20000214
+ 8000d8c:	20000084 	.word	0x20000084
+ 8000d90:	2000021a 	.word	0x2000021a
+ 8000d94:	20000200 	.word	0x20000200
+
+08000d98 <cea_dssd_ramp_loop>:
 
 void cea_dssd_ramp_loop(void)
 {
@@ -1920,14 +2094,15 @@ void cea_dssd_ramp_loop(void)
  8000d7a:	701a      	strb	r2, [r3, #0]
 	}
 }
- 8000d7c:	bf00      	nop
- 8000d7e:	3708      	adds	r7, #8
- 8000d80:	46bd      	mov	sp, r7
- 8000d82:	bd80      	pop	{r7, pc}
- 8000d84:	2000021c 	.word	0x2000021c
- 8000d88:	200000d8 	.word	0x200000d8
- 8000d8c:	20000222 	.word	0x20000222
- 8000d90:	20000200 	.word	0x20000200
+ 8000e4e:	bf00      	nop
+ 8000e50:	3708      	adds	r7, #8
+ 8000e52:	46bd      	mov	sp, r7
+ 8000e54:	bd80      	pop	{r7, pc}
+ 8000e56:	bf00      	nop
+ 8000e58:	20000224 	.word	0x20000224
+ 8000e5c:	20000084 	.word	0x20000084
+ 8000e60:	2000022a 	.word	0x2000022a
+ 8000e64:	20000200 	.word	0x20000200
 
 08000d94 <ucd_board_enable_set>:
 //            UCD PSB
@@ -2102,12 +2277,12 @@ bool cea_detector_init(void)
  8000e7e:	79fb      	ldrb	r3, [r7, #7]
 	}
 }
- 8000e80:	4618      	mov	r0, r3
- 8000e82:	3708      	adds	r7, #8
- 8000e84:	46bd      	mov	sp, r7
- 8000e86:	bd80      	pop	{r7, pc}
- 8000e88:	2000021c 	.word	0x2000021c
- 8000e8c:	20000222 	.word	0x20000222
+ 8000f54:	4618      	mov	r0, r3
+ 8000f56:	3708      	adds	r7, #8
+ 8000f58:	46bd      	mov	sp, r7
+ 8000f5a:	bd80      	pop	{r7, pc}
+ 8000f5c:	20000214 	.word	0x20000214
+ 8000f60:	2000021a 	.word	0x2000021a
 
 08000e90 <ijc_board_enable_set>:
 
@@ -2133,13 +2308,13 @@ void ijc_board_enable_set(bool gpio_state)
  8000eaa:	4b04      	ldr	r3, [pc, #16]	; (8000ebc <ijc_board_enable_set+0x2c>)
  8000eac:	815a      	strh	r2, [r3, #10]
 }
- 8000eae:	bf00      	nop
- 8000eb0:	3708      	adds	r7, #8
- 8000eb2:	46bd      	mov	sp, r7
- 8000eb4:	bd80      	pop	{r7, pc}
- 8000eb6:	bf00      	nop
- 8000eb8:	48000400 	.word	0x48000400
- 8000ebc:	20000210 	.word	0x20000210
+ 8000f82:	bf00      	nop
+ 8000f84:	3708      	adds	r7, #8
+ 8000f86:	46bd      	mov	sp, r7
+ 8000f88:	bd80      	pop	{r7, pc}
+ 8000f8a:	bf00      	nop
+ 8000f8c:	48000400 	.word	0x48000400
+ 8000f90:	20000214 	.word	0x20000214
 
 08000ec0 <ijc_board_enable_get>:
 
@@ -2164,11 +2339,11 @@ bool ijc_board_enable_get(void)
  8000ede:	2300      	moveq	r3, #0
  8000ee0:	b2db      	uxtb	r3, r3
 }
- 8000ee2:	4618      	mov	r0, r3
- 8000ee4:	bd80      	pop	{r7, pc}
- 8000ee6:	bf00      	nop
- 8000ee8:	48000400 	.word	0x48000400
- 8000eec:	20000210 	.word	0x20000210
+ 8000fb6:	4618      	mov	r0, r3
+ 8000fb8:	bd80      	pop	{r7, pc}
+ 8000fba:	bf00      	nop
+ 8000fbc:	48000400 	.word	0x48000400
+ 8000fc0:	20000214 	.word	0x20000214
 
 08000ef0 <cea_board_enable_set>:
 //            CEA PSB
@@ -2194,13 +2369,13 @@ void cea_board_enable_set(bool gpio_state)
  8000f0a:	4b04      	ldr	r3, [pc, #16]	; (8000f1c <cea_board_enable_set+0x2c>)
  8000f0c:	815a      	strh	r2, [r3, #10]
 }
- 8000f0e:	bf00      	nop
- 8000f10:	3708      	adds	r7, #8
- 8000f12:	46bd      	mov	sp, r7
- 8000f14:	bd80      	pop	{r7, pc}
- 8000f16:	bf00      	nop
- 8000f18:	48000400 	.word	0x48000400
- 8000f1c:	2000021c 	.word	0x2000021c
+ 80010de:	bf00      	nop
+ 80010e0:	3708      	adds	r7, #8
+ 80010e2:	46bd      	mov	sp, r7
+ 80010e4:	bd80      	pop	{r7, pc}
+ 80010e6:	bf00      	nop
+ 80010e8:	48000400 	.word	0x48000400
+ 80010ec:	20000224 	.word	0x20000224
 
 08000f20 <cea_board_enable_get>:
 
@@ -2225,11 +2400,11 @@ bool cea_board_enable_get(void)
  8000f3e:	2300      	moveq	r3, #0
  8000f40:	b2db      	uxtb	r3, r3
 }
- 8000f42:	4618      	mov	r0, r3
- 8000f44:	bd80      	pop	{r7, pc}
- 8000f46:	bf00      	nop
- 8000f48:	48000400 	.word	0x48000400
- 8000f4c:	2000021c 	.word	0x2000021c
+ 8001112:	4618      	mov	r0, r3
+ 8001114:	bd80      	pop	{r7, pc}
+ 8001116:	bf00      	nop
+ 8001118:	48000400 	.word	0x48000400
+ 800111c:	20000224 	.word	0x20000224
 
 08000f50 <cea_i2c_write>:
 
@@ -2824,13 +2999,13 @@ bool i2c_slv_cmd_rx_tx_handle(void)
  8001338:	2201      	movs	r2, #1
  800133a:	801a      	strh	r2, [r3, #0]
 					return(status);
- 800133c:	7dfb      	ldrb	r3, [r7, #23]
- 800133e:	e212      	b.n	8001766 <i2c_slv_cmd_rx_tx_handle+0x6ee>
- 8001340:	20000240 	.word	0x20000240
- 8001344:	20000204 	.word	0x20000204
- 8001348:	20000244 	.word	0x20000244
- 800134c:	200000d8 	.word	0x200000d8
- 8001350:	2000021c 	.word	0x2000021c
+ 80014dc:	7dfb      	ldrb	r3, [r7, #23]
+ 80014de:	e210      	b.n	8001902 <i2c_slv_cmd_rx_tx_handle+0x6ea>
+ 80014e0:	2000024c 	.word	0x2000024c
+ 80014e4:	20000204 	.word	0x20000204
+ 80014e8:	20000250 	.word	0x20000250
+ 80014ec:	200000d8 	.word	0x200000d8
+ 80014f0:	20000224 	.word	0x20000224
 				}
 				else if(i2c_slv_rx.bytes.data_byte_lsb == 0)
  8001354:	4b94      	ldr	r3, [pc, #592]	; (80015a8 <i2c_slv_cmd_rx_tx_handle+0x530>)
@@ -3281,15 +3456,14 @@ bool i2c_slv_cmd_rx_tx_handle(void)
  80015a0:	f000 ffaa 	bl	80024f8 <HAL_GPIO_TogglePin>
 				}
 				return(status);
- 80015a4:	7dfb      	ldrb	r3, [r7, #23]
- 80015a6:	e0de      	b.n	8001766 <i2c_slv_cmd_rx_tx_handle+0x6ee>
- 80015a8:	20000240 	.word	0x20000240
- 80015ac:	2000021c 	.word	0x2000021c
- 80015b0:	20000244 	.word	0x20000244
- 80015b4:	200000d8 	.word	0x200000d8
- 80015b8:	20000210 	.word	0x20000210
- 80015bc:	20000084 	.word	0x20000084
- 80015c0:	48000400 	.word	0x48000400
+ 8001744:	7dfb      	ldrb	r3, [r7, #23]
+ 8001746:	e0dc      	b.n	8001902 <i2c_slv_cmd_rx_tx_handle+0x6ea>
+ 8001748:	2000024c 	.word	0x2000024c
+ 800174c:	20000224 	.word	0x20000224
+ 8001750:	20000250 	.word	0x20000250
+ 8001754:	20000084 	.word	0x20000084
+ 8001758:	20000214 	.word	0x20000214
+ 800175c:	48000400 	.word	0x48000400
 		}
 		// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
@@ -3626,15 +3800,15 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 	return(status);
  8001764:	7dfb      	ldrb	r3, [r7, #23]
 }
- 8001766:	4618      	mov	r0, r3
- 8001768:	3718      	adds	r7, #24
- 800176a:	46bd      	mov	sp, r7
- 800176c:	bd80      	pop	{r7, pc}
- 800176e:	bf00      	nop
- 8001770:	20000240 	.word	0x20000240
- 8001774:	20000084 	.word	0x20000084
- 8001778:	20000244 	.word	0x20000244
- 800177c:	20000210 	.word	0x20000210
+ 8001902:	4618      	mov	r0, r3
+ 8001904:	3718      	adds	r7, #24
+ 8001906:	46bd      	mov	sp, r7
+ 8001908:	bd80      	pop	{r7, pc}
+ 800190a:	bf00      	nop
+ 800190c:	2000024c 	.word	0x2000024c
+ 8001910:	20000084 	.word	0x20000084
+ 8001914:	20000250 	.word	0x20000250
+ 8001918:	20000214 	.word	0x20000214
 
 08001780 <i2c_slv_init>:
 
@@ -3666,11 +3840,11 @@ void i2c_slv_init(void)
  80017a0:	f000 f8da 	bl	8001958 <Error_Handler>
 	}
 }
- 80017a4:	bf00      	nop
- 80017a6:	bd80      	pop	{r7, pc}
- 80017a8:	20000238 	.word	0x20000238
- 80017ac:	2000023c 	.word	0x2000023c
- 80017b0:	20000030 	.word	0x20000030
+ 8001940:	bf00      	nop
+ 8001942:	bd80      	pop	{r7, pc}
+ 8001944:	20000244 	.word	0x20000244
+ 8001948:	20000248 	.word	0x20000248
+ 800194c:	20000030 	.word	0x20000030
 
 080017b4 <i2c_slv_clear_buffer>:
 
@@ -3791,15 +3965,15 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
  8001848:	2201      	movs	r2, #1
  800184a:	601a      	str	r2, [r3, #0]
 }
- 800184c:	bf00      	nop
- 800184e:	370c      	adds	r7, #12
- 8001850:	46bd      	mov	sp, r7
- 8001852:	f85d 7b04 	ldr.w	r7, [sp], #4
- 8001856:	4770      	bx	lr
- 8001858:	2000023c 	.word	0x2000023c
- 800185c:	20000240 	.word	0x20000240
- 8001860:	20000244 	.word	0x20000244
- 8001864:	2000002c 	.word	0x2000002c
+ 80019e8:	bf00      	nop
+ 80019ea:	370c      	adds	r7, #12
+ 80019ec:	46bd      	mov	sp, r7
+ 80019ee:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 80019f2:	4770      	bx	lr
+ 80019f4:	20000248 	.word	0x20000248
+ 80019f8:	2000024c 	.word	0x2000024c
+ 80019fc:	20000250 	.word	0x20000250
+ 8001a00:	2000002c 	.word	0x2000002c
 
 08001868 <HAL_I2C_AddrCallback>:
   * @param  TransferDirection: Master request Transfer Direction (Write/Read), value of @ref I2C_XferOptions_definition
@@ -3874,15 +4048,15 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 		Error_Handler();
  80018c4:	f000 f848 	bl	8001958 <Error_Handler>
 }
- 80018c8:	bf00      	nop
- 80018ca:	3708      	adds	r7, #8
- 80018cc:	46bd      	mov	sp, r7
- 80018ce:	bd80      	pop	{r7, pc}
- 80018d0:	20000028 	.word	0x20000028
- 80018d4:	20000244 	.word	0x20000244
- 80018d8:	20000238 	.word	0x20000238
- 80018dc:	20000030 	.word	0x20000030
- 80018e0:	2000023c 	.word	0x2000023c
+ 8001a64:	bf00      	nop
+ 8001a66:	3708      	adds	r7, #8
+ 8001a68:	46bd      	mov	sp, r7
+ 8001a6a:	bd80      	pop	{r7, pc}
+ 8001a6c:	20000028 	.word	0x20000028
+ 8001a70:	20000250 	.word	0x20000250
+ 8001a74:	20000244 	.word	0x20000244
+ 8001a78:	20000030 	.word	0x20000030
+ 8001a7c:	20000248 	.word	0x20000248
 
 080018e4 <HAL_I2C_ListenCpltCallback>:
   * @param  hi2c Pointer to a I2C_HandleTypeDef structure that contains
@@ -3964,14 +4138,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
  800193a:	4806      	ldr	r0, [pc, #24]	; (8001954 <HAL_TIM_PeriodElapsedCallback+0x3c>)
  800193c:	f000 fddc 	bl	80024f8 <HAL_GPIO_TogglePin>
 }
- 8001940:	bf00      	nop
- 8001942:	3708      	adds	r7, #8
- 8001944:	46bd      	mov	sp, r7
- 8001946:	bd80      	pop	{r7, pc}
- 8001948:	20000246 	.word	0x20000246
- 800194c:	20000210 	.word	0x20000210
- 8001950:	2000021c 	.word	0x2000021c
- 8001954:	48000800 	.word	0x48000800
+ 8001adc:	bf00      	nop
+ 8001ade:	3708      	adds	r7, #8
+ 8001ae0:	46bd      	mov	sp, r7
+ 8001ae2:	bd80      	pop	{r7, pc}
+ 8001ae4:	20000252 	.word	0x20000252
+ 8001ae8:	20000214 	.word	0x20000214
+ 8001aec:	20000224 	.word	0x20000224
+ 8001af0:	48000800 	.word	0x48000800
 
 08001958 <Error_Handler>:
 /**
@@ -4837,7 +5011,7 @@ LoopForever:
   ldr r2, =_sbss
  8001d98:	2000000c 	.word	0x2000000c
   ldr r4, =_ebss
- 8001d9c:	2000024c 	.word	0x2000024c
+ 8001f38:	20000258 	.word	0x20000258
 
 08001da0 <ADC1_IRQHandler>:
  * @retval : None
@@ -5020,13 +5194,13 @@ __weak void HAL_IncTick(void)
  8001e6c:	4a04      	ldr	r2, [pc, #16]	; (8001e80 <HAL_IncTick+0x24>)
  8001e6e:	6013      	str	r3, [r2, #0]
 }
- 8001e70:	bf00      	nop
- 8001e72:	46bd      	mov	sp, r7
- 8001e74:	f85d 7b04 	ldr.w	r7, [sp], #4
- 8001e78:	4770      	bx	lr
- 8001e7a:	bf00      	nop
- 8001e7c:	20000008 	.word	0x20000008
- 8001e80:	20000248 	.word	0x20000248
+ 800200c:	bf00      	nop
+ 800200e:	46bd      	mov	sp, r7
+ 8002010:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8002014:	4770      	bx	lr
+ 8002016:	bf00      	nop
+ 8002018:	20000008 	.word	0x20000008
+ 800201c:	20000254 	.word	0x20000254
 
 08001e84 <HAL_GetTick>:
   * @note This function is declared as __weak to be overwritten in case of other
@@ -5041,12 +5215,12 @@ __weak uint32_t HAL_GetTick(void)
  8001e88:	4b03      	ldr	r3, [pc, #12]	; (8001e98 <HAL_GetTick+0x14>)
  8001e8a:	681b      	ldr	r3, [r3, #0]
 }
- 8001e8c:	4618      	mov	r0, r3
- 8001e8e:	46bd      	mov	sp, r7
- 8001e90:	f85d 7b04 	ldr.w	r7, [sp], #4
- 8001e94:	4770      	bx	lr
- 8001e96:	bf00      	nop
- 8001e98:	20000248 	.word	0x20000248
+ 8002028:	4618      	mov	r0, r3
+ 800202a:	46bd      	mov	sp, r7
+ 800202c:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8002030:	4770      	bx	lr
+ 8002032:	bf00      	nop
+ 8002034:	20000254 	.word	0x20000254
 
 08001e9c <HAL_Delay>:
   *       implementations in user file.

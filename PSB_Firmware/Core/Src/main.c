@@ -898,6 +898,64 @@ void cea_dssd_ramp_loop(void)
 	}
 }
 
+bool make_ijc_dssd_safe(void)
+{
+	// To make the IJCLab DSSD detector safe
+
+	bool status = EXIT_SUCCESS;
+	bool board_state;
+
+	// Get the state of the IJCLab detector board
+	board_state = ijc_board_enable_get();
+
+	if(board_state == true)
+	{
+		// If the detector board is enabled - Make it safe from here by ramping down if necessary
+
+		// Get the current digipot value
+		status = ijc_i2c_read(ADDR_IJC_DIGIPOT, &ijc_detector.hv_digipot_value, 1);
+
+		if(status == EXIT_SUCCESS && ijc_detector.hv_digipot_value > 0)
+		{
+			// Begin ramp down
+			// ----------------------------------------------------------------------------
+			// Must enable the ramp enable flag
+			ijc_detector.hv_loop_enable = true;
+
+			// Must set the target value to 0
+			ijc_detector.hv_targate_value = 0;
+
+			// Set the flag to indicate that the IJCLab board is currently being made safe
+			ijc_detector.making_safe_inprogress = true;
+			status = EXIT_FAILURE;
+			return(status);
+		}
+		else if (status == EXIT_FAILURE)
+		{
+			// Failed to make communication to the digipot device
+			ijc_detector.making_safe_inprogress = false;
+			status = EXIT_FAILURE;
+			return(status);
+		}
+		else
+		{
+			// Board is enabled but the digipot is in the 0 position
+			ijc_detector.making_safe_inprogress = false;
+			// The digipot is in a 0 state - the make safe was successful
+			status = EXIT_SUCCESS;
+			return(status);
+		}
+	}
+	else
+	{
+		ijc_detector.making_safe_inprogress = false;
+		// If board is disabled the board is already in a safe state
+		status = EXIT_SUCCESS;
+		return(status);
+	}
+
+}
+
 
 //************************************
 //            UCD PSB
