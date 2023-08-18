@@ -90,7 +90,7 @@ uint8_t i2c_tx_buffer[TXBUFFERSIZE];				// Transmit buffer
 uint8_t i2c_rx_buffer[RXBUFFERSIZE];				// Recieve buffer
 _i2c_slv_rx i2c_slv_rx;                             // A union struct to hold the I2C slv RX
 _i2c_slv_tx i2c_slv_tx;                             // A union struct to hold the I2C slv tx
-//_max6911_ctrl selector;
+_max6911_ctrl selector;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -153,7 +153,7 @@ void i2c_slv_init(void);
 // -------------------------
 // MAX6911 Stuff
 // -------------------------
-void max6911_set_ctrl1_register(uint8_t selector);
+void max6911_set_ctrl1_register(_max6911_ctrl selector);
 // -------------------------
 // Deleteme
 // -------------------------
@@ -224,7 +224,7 @@ int main(void)
 	  while(1);
   }
 
-  ht_enable_set(GPIO_PIN_SET);
+  ht_enable_set(GPIO_PIN_RESET);
 
   // Start the timer
   HAL_TIM_Base_Start_IT(&htim2);
@@ -730,7 +730,7 @@ uint16_t max6911_read(I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_
 }
 
 
-void max6911_set_ctrl1_register(uint8_t selector)
+void max6911_set_ctrl1_register(_max6911_ctrl selector)
 {
 
 	switch(selector)
