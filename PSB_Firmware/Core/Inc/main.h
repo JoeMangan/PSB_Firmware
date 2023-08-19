@@ -101,11 +101,11 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 
 // Revise the UCD stuff
-#define ADDR_UCD_MAX9611_AVDD   0b11100100
-#define ADDR_UCD_MAX9611_DVDD   0b11100010
-#define ADDR_UCD_MAX9611_POSI   0b11101000
-#define ADDR_UCD_MAX9611_NEGI   0b11100110
-#define ADDR_UCD_MAX9611_BCUR   0b11101110
+#define ADDR_UCD_MAX9611_AVDD   0xE4
+#define ADDR_UCD_MAX9611_DVDD   0xE2
+#define ADDR_UCD_MAX9611_POSI   0xE8
+#define ADDR_UCD_MAX9611_NEGI   0xE6
+#define ADDR_UCD_MAX9611_BCUR   0xE8
 #define ADDR_UCD_DAC     		0x9E
 #define UCD_DAC_VBIAS_INDEX     0x10
 #define UCD_DAC_MBIAS_1_INDEX   0x12
@@ -115,8 +115,8 @@ void Error_Handler(void);
 #define ADDR_PRESS_TEMP				  0x77<<1
 
 // Dev addrs on the FPGA board
-#define ADDR_FPGA_MAX6911_VOLTAGE     0b11100000	// THIS IS WRONG
-#define ADDR_FPGA_MAX6911_CURRENT     0b11100010	// THIS IS WRONG
+#define ADDR_FPGA_MAX6911_VOLTAGE     0xF2	// THIS IS WRONG
+#define ADDR_FPGA_MAX6911_CURRENT     0xF2	// THIS IS WRONG
 
 // Dev addrs on the IJC board
 #define ADDR_IJC_MAX9611_1_5    	  0b11100000    // The 1.5V supply (U11 on the schematic)
@@ -166,7 +166,7 @@ void Error_Handler(void);
 #define CMD_UCD_BIAS_POSITIVE_VOLTAGE 	    0x81
 #define CMD_UCD_BIAS_NEGITIVE_VOLTAGE 	    0x82
 // xxxxxxxxxx
-#define CMD_UCD_BIAS_CTL 	    		    0x83
+#define CMD_UCD_BIAS_CTL 	    		    0x85
 #define CMD_UCD_BIAS_CURRENT 	    		0x84
 // xxxxxxxxxx
 #define CMD_UCD_AVDD_VOLTAGE                0x86

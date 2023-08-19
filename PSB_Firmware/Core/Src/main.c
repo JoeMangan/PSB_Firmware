@@ -127,7 +127,7 @@ bool i2c_pt_d2_temperature_conversion(I2C_HandleTypeDef *hi2c, uint8_t osr);
 bool i2c_pt_measure_d2_temperature(I2C_HandleTypeDef *hi2c, uint8_t osr, uint32_t *r_buffer);
 bool i2c_pt_measure_d1_pressure(I2C_HandleTypeDef *hi2c, uint8_t osr, uint32_t *r_buffer);
 bool i2c_pt_adc_read_sequence(I2C_HandleTypeDef *hi2c, uint32_t *r_buffer);
-bool run_complete_readout(struct meas measurement);
+bool run_complete_readout();
 
 
 
@@ -290,7 +290,7 @@ int main(void)
 
 	  if (general_loop_flg == true)
 	  {
-		  run_complete_readout(measurement);
+		  run_complete_readout();
 		  general_loop_flg = false;
 	  }
 
@@ -1259,27 +1259,27 @@ bool ijc_detector_init(void)
 
 	// Configure the board enable state
 	ht_ijc_enable_set(GPIO_PIN_RESET);
-	ijc_board_enable_set(GPIO_PIN_SET);
+	//ijc_board_enable_set(GPIO_PIN_SET);
 
-	HAL_Delay(100);
+	//HAL_Delay(100);
 
 	// Reset the digipot value to 0
-	uint8_t command[2] = {0x00, 0x00};
-	HAL_StatusTypeDef digipot_set_stataus = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &command[0], 2, &ijc_detector.hv_digipot_value, 1);
+//	uint8_t command[2] = {0x00, 0x00};
+//	HAL_StatusTypeDef digipot_set_stataus = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &command[0], 2, &ijc_detector.hv_digipot_value, 1);
 
 
-	if (ijc_detector.hv_digipot_value != 0 || digipot_set_stataus == HAL_ERROR)
-	{
-		// Disable the loop enable flag
-		ijc_detector.hv_loop_enable = false;
-		status = EXIT_FAILURE;
-		return(status);
-	}
-	else
-	{
+//	if (ijc_detector.hv_digipot_value != 0 || digipot_set_stataus == HAL_ERROR)
+//	{
+//		// Disable the loop enable flag
+//		ijc_detector.hv_loop_enable = false;
+//		status = EXIT_FAILURE;
+//		return(status);
+//	}
+//	else
+//	{
 		status = EXIT_SUCCESS;
 		return(status);
-	}
+//	}
 }
 
 
@@ -1305,27 +1305,27 @@ bool cea_detector_init(void)
 
 	// Configure the board enable state
 	ht_cea_enable_set(GPIO_PIN_RESET);
-	cea_board_enable_set(GPIO_PIN_SET);
+//	cea_board_enable_set(GPIO_PIN_SET);
 
-	HAL_Delay(100);
+//	HAL_Delay(100);/
 
 	// Reset the digipot value to 0
-	uint8_t command[2] = {0x00, 0x00};
-	HAL_StatusTypeDef digipot_set_stataus = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &command[0], 2, &cea_detector.hv_digipot_value, 1);
+//	uint8_t command[2] = {0x00, 0x00};
+//	HAL_StatusTypeDef digipot_set_stataus = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &command[0], 2, &cea_detector.hv_digipot_value, 1);
+//
 
-
-	if (cea_detector.hv_digipot_value != 0 || digipot_set_stataus == HAL_ERROR)
-	{
-		// Disable the loop enable flag
-		cea_detector.hv_loop_enable = false;
-		status = EXIT_FAILURE;
-		return(status);
-	}
-	else
-	{
+//	if (cea_detector.hv_digipot_value != 0 || digipot_set_stataus == HAL_ERROR)
+//	{
+//		// Disable the loop enable flag
+//		cea_detector.hv_loop_enable = false;
+//		status = EXIT_FAILURE;
+//		return(status);
+//	}
+//	else
+//	{
 		status = EXIT_SUCCESS;
 		return(status);
-	}
+//	}
 }
 
 
@@ -1767,7 +1767,7 @@ bool i2c_pt_adc_read_sequence(I2C_HandleTypeDef *hi2c, uint32_t *r_buffer)
 }
 
 
-bool run_complete_readout(struct meas measurement)
+bool run_complete_readout()
 {
     bool status = EXIT_SUCCESS;      // A status record of the operation
 
@@ -1778,12 +1778,16 @@ bool run_complete_readout(struct meas measurement)
     //if(status == 0) status = i2c_pt_prom_read_all(&hi2c2, &measurement.prom_regs[0]);
 
     // Attempt conversion sequence for pressure at OSR 4096 with conversion duration <9.04ms
-    if(status == 0) status = i2c_pt_measure_d1_pressure(&hi2c2, OSR_4096, &measurement.uncomp_press);
+    uint32_t rx_buffer = 0;
+
+    if(status == 0) status = i2c_pt_measure_d1_pressure(&hi2c2, OSR_4096, &rx_buffer);
+    measurement.uncomp_press = rx_buffer;
 
     HAL_Delay(10);
 
     // Attempt conversion sequence for temperature at OSR 4096 with conversion duration <9.04ms
-    if(status == 0) status = i2c_pt_measure_d2_temperature(&hi2c2, OSR_4096, &measurement.uncomp_temp);
+    if(status == 0) status = i2c_pt_measure_d2_temperature(&hi2c2, OSR_4096, &rx_buffer);
+    measurement.uncomp_temp = rx_buffer;
 
     return(status);
 }
