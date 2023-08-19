@@ -85,6 +85,7 @@ HAL_StatusTypeDef status;
 _detector ucd_detector;
 _detector ijc_detector;
 _detector cea_detector;
+_detector caen_detector;
 
 struct max6811_registers max6911;             		// A structure for storing the i2c recieved data
 uint8_t i2c_tx_buffer[TXBUFFERSIZE];				// Transmit buffer
@@ -173,6 +174,8 @@ void i2c_slv_init(void);
 // MAX6911 Stuff
 // -------------------------
 void max6911_set_ctrl1_register(_max6911_ctrl selector);
+bool dac7574_write(uint8_t channel, uint16_t data_bytes);
+
 // -------------------------
 // Deleteme
 // -------------------------
@@ -594,7 +597,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, ENABLE_HT_CEA_DSSD_Pin|LD4_Pin|ENABLE_HT_IJC_DSSD_Pin|ENABLE_2_IJC_Pin
-                          |ENABLE_3_CEA_Pin|ENABLE_4_Pin|ENABLE_5_UCD_Pin, GPIO_PIN_RESET);
+                          |ENABLE_3_CEA_Pin|ENABLE_4_CAEN_Pin|ENABLE_5_UCD_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(TIMING_PIN_GPIO_Port, TIMING_PIN_Pin, GPIO_PIN_RESET);
@@ -619,9 +622,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(SMPS_PG_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : ENABLE_HT_CEA_DSSD_Pin LD4_Pin ENABLE_HT_IJC_DSSD_Pin ENABLE_2_IJC_Pin
-                           ENABLE_3_CEA_Pin ENABLE_4_Pin ENABLE_5_UCD_Pin */
+                           ENABLE_3_CEA_Pin ENABLE_4_CAEN_Pin ENABLE_5_UCD_Pin */
   GPIO_InitStruct.Pin = ENABLE_HT_CEA_DSSD_Pin|LD4_Pin|ENABLE_HT_IJC_DSSD_Pin|ENABLE_2_IJC_Pin
-                          |ENABLE_3_CEA_Pin|ENABLE_4_Pin|ENABLE_5_UCD_Pin;
+                          |ENABLE_3_CEA_Pin|ENABLE_4_CAEN_Pin|ENABLE_5_UCD_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -715,6 +718,24 @@ HAL_StatusTypeDef i2c_write_read(I2C_HandleTypeDef *hi2c, uint8_t dev_addr, uint
 //************************************
 //        Chips and Devs
 //************************************
+
+
+bool dac7574_write(uint8_t channel, uint16_t data_bytes)
+{
+
+	HAL_StatusTypeDef status;
+	uint8_t tx_data[3] = {0x00, 0x00, 0x00};
+
+	// Split the data_bytes into two bytes and add the command to the TX data
+	tx_data[0] = channel;
+	tx_data[1] = (data_bytes >> 8) & 0xFF;
+	tx_data[2] = (data_bytes) & 0xFF;
+
+	status = ucd_i2c_write(ADDR_UCD_DAC, &tx_data[0], 3);
+
+	return(status);
+}
+
 
 uint16_t max6911_read(I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_msb, uint8_t cmd_lsb)
 {
@@ -1112,6 +1133,24 @@ bool make_cea_dssd_safe(void)
 }
 
 //************************************
+//            CAEN PSB
+//************************************
+
+// Board enable functions
+void caen_board_enable_set(bool gpio_state)
+{
+	HAL_GPIO_WritePin(ENABLE_4_CAEN_GPIO_Port, ENABLE_4_CAEN_Pin, gpio_state);
+	caen_detector.board_enable_state = gpio_state;
+
+}
+
+bool caen_board_enable_get(void)
+{
+	caen_detector.board_enable_state = HAL_GPIO_ReadPin(ENABLE_4_CAEN_GPIO_Port, ENABLE_4_CAEN_Pin);
+	return(caen_detector.board_enable_state);
+}
+
+//************************************
 //            UCD PSB
 //************************************
 
@@ -1188,6 +1227,9 @@ HAL_StatusTypeDef ucd_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 
 	return(status);
 }
+
+
+
 
 
 //************************************
@@ -1757,8 +1799,56 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 
 
 	// SOME FUNCTION HERE TO HANDLE RX/TX
-    switch(i2c_slv_rx.bytes.cmd)
-    {
+	switch(i2c_slv_rx.bytes.cmd)
+	{
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+		//                     FPGA  Commands
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+
+		case(CMD_FPGA_VOLTAGE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c3, ADDR_FPGA_MAX6911_VOLTAGE, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+		case(CMD_FPGA_CURRENT):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c3, ADDR_FPGA_MAX6911_CURRENT, CSA_DATA_BYTE_MSB, CSA_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
 		// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
 		//                     UCD Detector Commands
@@ -1840,6 +1930,187 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 			break;
 		}
 		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_UCD_DVDD_VOLTAGE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				// read the UCD max6911 AVDD device
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c3, ADDR_UCD_MAX9611_DVDD, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_UCD_DVDD_CURRENT):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				// read the UCD max6911 AVDD device
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c3, ADDR_UCD_MAX9611_DVDD, CSA_DATA_BYTE_MSB, CSA_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_UCD_BIAS_POSITIVE_VOLTAGE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c3, ADDR_UCD_MAX9611_POSI, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_UCD_BIAS_NEGITIVE_VOLTAGE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c3, ADDR_UCD_MAX9611_NEGI, RSP_DATA_BYTE_MSB, RSP_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_UCD_BIAS_CURRENT):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				// read the UCD max6911 AVDD device
+				uint16_t dataread = 0;
+				dataread = max6911_read(&hi2c3, ADDR_UCD_MAX9611_BCUR, CSA_DATA_BYTE_MSB, CSA_DATA_BYTE_LSB);
+
+				// Load the MSB and LSB into the TX register buffer
+				i2c_slv_tx.data = dataread;  		                    // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_UCD_BIAS_CTL):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = ucd_detector.voltage_target; 						// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				// Read the data from the buffer
+				ucd_detector.voltage_target =   (i2c_slv_rx.bytes.data_byte_msb << 8) |
+												 i2c_slv_rx.bytes.data_byte_lsb;
+
+				HAL_StatusTypeDef status = dac7574_write(UCD_DAC_VBIAS_INDEX, ucd_detector.voltage_target);
+
+				i2c_slv_tx.data = status;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_UCD_MBIAS_1_CTRL):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = ucd_detector.mbias_1_target; 						// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				// Read the data from the buffer
+				ucd_detector.mbias_1_target =   (i2c_slv_rx.bytes.data_byte_msb << 8) |
+												 i2c_slv_rx.bytes.data_byte_lsb;
+
+				HAL_StatusTypeDef status = dac7574_write(UCD_DAC_MBIAS_1_INDEX, ucd_detector.mbias_1_target);
+
+				i2c_slv_tx.data = status;
+				return(status);
+			}
+			break;
+		}
+		// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_UCD_MBIAS_2_CTRL):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = ucd_detector.mbias_2_target; 						// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				// Read the data from the buffer
+				ucd_detector.mbias_2_target =   (i2c_slv_rx.bytes.data_byte_msb << 8) |
+												 i2c_slv_rx.bytes.data_byte_lsb;
+
+				HAL_StatusTypeDef status = dac7574_write(UCD_DAC_MBIAS_2_INDEX, ucd_detector.mbias_2_target);
+
+				i2c_slv_tx.data = status;
+				return(status);
+			}
+			break;
+		}
+
+
+    	// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
     	//                     CEA Detector Commands
 		// ---------------------------------------------------------------------
@@ -2224,9 +2495,46 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 			}
 			break;
 		}
+
+       	// ---------------------------------------------------------------------
+    	// ---------------------------------------------------------------------
+    	//                            CAEN MODULE BOARD
+		// ---------------------------------------------------------------------
+       	// ---------------------------------------------------------------------
+    	case(CMD_CAEN_ENABLE):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				caen_detector.board_enable_state = (uint16_t)caen_board_enable_get(); // Read the state enable pin
+				i2c_slv_tx.data = caen_detector.board_enable_state; 					// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				// Write the state of the enable pin
+				if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_SET)
+				{
+					caen_board_enable_set(GPIO_PIN_SET);								// Set the state of the pin
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				else if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_RESET)
+				{
+					caen_board_enable_set(GPIO_PIN_RESET);                           // Set the state of the pin
+					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					return(status);
+				}
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+       	// ---------------------------------------------------------------------
     	// ---------------------------------------------------------------------
     	//                            TEMP PRESSURE
 		// ---------------------------------------------------------------------
+       	// ---------------------------------------------------------------------
     	case(CMD_TEMP_MSB):
 		{
 			if(i2c_slv_rx.bytes.rw_state == CMD_READ)

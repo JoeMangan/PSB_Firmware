@@ -93,8 +93,8 @@ void Error_Handler(void);
 #define ENABLE_2_IJC_GPIO_Port GPIOB
 #define ENABLE_3_CEA_Pin GPIO_PIN_7
 #define ENABLE_3_CEA_GPIO_Port GPIOB
-#define ENABLE_4_Pin GPIO_PIN_8
-#define ENABLE_4_GPIO_Port GPIOB
+#define ENABLE_4_CAEN_Pin GPIO_PIN_8
+#define ENABLE_4_CAEN_GPIO_Port GPIOB
 #define ENABLE_5_UCD_Pin GPIO_PIN_9
 #define ENABLE_5_UCD_GPIO_Port GPIOB
 
@@ -103,7 +103,9 @@ void Error_Handler(void);
 // Revise the UCD stuff
 #define ADDR_UCD_MAX9611_AVDD   0b11100100
 #define ADDR_UCD_MAX9611_DVDD   0b11100010
-// ----------------------------------------
+#define ADDR_UCD_MAX9611_POSI   0b11101000
+#define ADDR_UCD_MAX9611_NEGI   0b11100110
+#define ADDR_UCD_MAX9611_BCUR   0b11101110
 #define ADDR_UCD_DAC     		0x9E
 #define UCD_DAC_VBIAS_INDEX     0x10
 #define UCD_DAC_MBIAS_1_INDEX   0x12
@@ -111,6 +113,10 @@ void Error_Handler(void);
 
 
 #define ADDR_PRESS_TEMP				  0x77<<1
+
+// Dev addrs on the FPGA board
+#define ADDR_FPGA_MAX6911_VOLTAGE     0b11100000	// THIS IS WRONG
+#define ADDR_FPGA_MAX6911_CURRENT     0b11100010	// THIS IS WRONG
 
 // Dev addrs on the IJC board
 #define ADDR_IJC_MAX9611_1_5    	  0b11100000    // The 1.5V supply (U11 on the schematic)
@@ -146,11 +152,29 @@ void Error_Handler(void);
 #define CMD_FAIL_OP_INPROG_RESP             0xFFFE
 #define CMD_SUCCESS_RESP                    0x0001
 // ----------------------------------------------
+#define DISABLED							0x00
+#define ENABLED							    0x01
+#define DISABLE							    0x00
+#define ENABLE							    0x01
+// ----------------------------------------------
+// FPGA Commands
+#define CMD_FPGA_VOLTAGE					0x21
+#define CMD_FPGA_CURRENT					0x22
+// ----------------------------------------------
 // UCD Detector Commands
 #define CMD_UCD_ENABLE 						0x80
+#define CMD_UCD_BIAS_POSITIVE_VOLTAGE 	    0x81
+#define CMD_UCD_BIAS_NEGITIVE_VOLTAGE 	    0x82
+// xxxxxxxxxx
+#define CMD_UCD_BIAS_CTL 	    		    0x83
+#define CMD_UCD_BIAS_CURRENT 	    		0x84
 // xxxxxxxxxx
 #define CMD_UCD_AVDD_VOLTAGE                0x86
 #define CMD_UCD_AVDD_CURRENT                0x87
+#define CMD_UCD_DVDD_VOLTAGE                0x88
+#define CMD_UCD_DVDD_CURRENT                0x89
+#define CMD_UCD_MBIAS_1_CTRL 	    		0x8A
+#define CMD_UCD_MBIAS_2_CTRL 	    		0x8B
 // ----------------------------------------------
 // IJC Detector Commands
 #define CMD_IJC_ENABLE 						0x60
@@ -169,14 +193,9 @@ void Error_Handler(void);
 #define CMD_CEA_HV_VOLTAGE 			        0x42
 #define CMD_CEA_HV_CURRENT 			        0x43
 #define CMD_CEA_TARGET_HV_VOLTAGE 			0x44
-
-#define DISABLED							0x00
-#define ENABLED							    0x01
-#define DISABLE							    0x00
-#define ENABLE							    0x01
-
-
-
+// ----------------------------------------------
+#define CMD_CAEN_ENABLE						0xA0
+// ----------------------------------------------
 #define CMD_TEMP_MSB                        0xB1
 #define CMD_TEMP_LSB                        0xB2
 #define CMD_PRES_MSB                        0xB3
@@ -217,6 +236,9 @@ typedef struct
 	uint8_t  hv_lower_deadband;			    // The min dead band threshold for the loop when ramping up to the target value
 	uint8_t  hv_digipot_value;				// The value of the digipot - may not always be the most up to date
 	uint16_t hv_targate_value;				// The targate value to reach when referenced against the MAX6911 voltage reading
+	uint16_t voltage_target;
+	uint16_t mbias_1_target;
+	uint16_t mbias_2_target;
 	uint16_t board_enable_state;			// The enable state of the board
 	bool 	 hv_enable_state;				// The enable state of the HV pin
 	bool     making_safe_inprogress;        // The board is currently being made safe by ramp down
