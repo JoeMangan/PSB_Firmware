@@ -177,6 +177,12 @@ void Error_Handler(void);
 
 
 
+#define CMD_TEMP_MSB                        0xB1
+#define CMD_TEMP_LSB                        0xB2
+#define CMD_PRES_MSB                        0xB3
+#define CMD_PRES_LSB                        0xB4
+
+
 // A union struct to hold the I2C slv RX
 typedef union{
 	struct

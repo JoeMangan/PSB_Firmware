@@ -179,6 +179,8 @@ void max6911_set_ctrl1_register(_max6911_ctrl selector);
 uint8_t i = 0x00;
 uint16_t max_value = 70;
 uint8_t counter = 0;
+bool general_loop_flg = false;   // A general loop flag used to run operations every PERIOD withing the main while loop
+struct meas measurement;         // A structure for storing the measurement data
 
 
 
@@ -233,17 +235,8 @@ int main(void)
   //while(1);
 
 
-  struct meas measurement;         // A structure for storing the measurement data
-  while(1)
-  {
-
-	  run_complete_readout(measurement);
-	  HAL_Delay(500);
-  }
-
   bool ijc_init_status = ijc_detector_init();
   bool cea_init_status = cea_detector_init();
-
 
 
   if(ijc_init_status == EXIT_FAILURE)
@@ -282,14 +275,20 @@ int main(void)
 		  Xfer_Complete =0;
 	  }
 
-	  if(ijc_detector.making_safe_inprogress)
+	  if(ijc_detector.making_safe_inprogress && general_loop_flg == true)
 	  {
 		  // Make the IJC detector safe
 		  make_ijc_dssd_safe();
 	  }
-	  else if (cea_detector.making_safe_inprogress)
+	  else if (cea_detector.making_safe_inprogress && general_loop_flg == true)
 	  {
 		  make_cea_dssd_safe();
+	  }
+
+	  if (general_loop_flg == true)
+	  {
+		  run_complete_readout(measurement);
+		  general_loop_flg = false;
 	  }
 
   }
@@ -1734,10 +1733,12 @@ bool run_complete_readout(struct meas measurement)
     if(status == 0) status = i2c_pt_reset(&hi2c2);
 
     // Attempt to read into memory all the I2C prom calibration bytes
-    if(status == 0) status = i2c_pt_prom_read_all(&hi2c2, &measurement.prom_regs[0]);
+    //if(status == 0) status = i2c_pt_prom_read_all(&hi2c2, &measurement.prom_regs[0]);
 
     // Attempt conversion sequence for pressure at OSR 4096 with conversion duration <9.04ms
     if(status == 0) status = i2c_pt_measure_d1_pressure(&hi2c2, OSR_4096, &measurement.uncomp_press);
+
+    HAL_Delay(10);
 
     // Attempt conversion sequence for temperature at OSR 4096 with conversion duration <9.04ms
     if(status == 0) status = i2c_pt_measure_d2_temperature(&hi2c2, OSR_4096, &measurement.uncomp_temp);
@@ -2224,6 +2225,76 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 			break;
 		}
     	// ---------------------------------------------------------------------
+    	//                            TEMP PRESSURE
+		// ---------------------------------------------------------------------
+    	case(CMD_TEMP_MSB):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = (measurement.uncomp_temp >> 16) & 0xFFFF;  	// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+    	// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_TEMP_LSB):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = (measurement.uncomp_temp) & 0xFFFF;  	// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+
+    	// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_PRES_MSB):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = (measurement.uncomp_press >> 16) & 0xFFFF;  	// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+    	// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_PRES_LSB):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = (measurement.uncomp_press) & 0xFFFF;  	// Prepare the date into the transmit
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
+    	// ---------------------------------------------------------------------
 		// ---------------------------------------------------------------------
     	default:
 			status =  EXIT_FAILURE;
@@ -2386,6 +2457,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 	// Set the flags responsable for running through the DSSD loop
 	ijc_detector.ramp_flag = true;
 	cea_detector.ramp_flag = true;
+	general_loop_flg = true;
 	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
 }
 
