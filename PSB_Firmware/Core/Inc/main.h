@@ -116,8 +116,8 @@ void Error_Handler(void);
 #define ADDR_IJC_MAX9611_HV_VOLTAGE   0b11100100    // The HV voltage  (U14 on the schematic)
 #define ADDR_IJC_DIGIPOT			  0b01011000	// The IJC Digipot (U5  on the schematic)
 // Dev addrs on the CEA board
-#define ADDR_CEA_MAX9611_HV_CURRENT   0xE6 //0b11100110    // The HV current  ( - on the schematic)   F0 - the Flight board
-#define ADDR_CEA_MAX9611_HV_VOLTAGE   0xE0 //0b11100000    // The HV voltage  ( - on the schematic)   EE - the Flight board
+#define ADDR_CEA_MAX9611_HV_CURRENT   0xF0 //E6 //0b11100110    // The HV current  ( - on the schematic)   F0 - the Flight board
+#define ADDR_CEA_MAX9611_HV_VOLTAGE   0xEE //E0 //0b11100000    // The HV voltage  ( - on the schematic)   EE - the Flight board
 #define ADDR_CEA_DIGIPOT			  0b01011000	// The CEA Digipot ( - on the schematic)
 									  //0101100
 
@@ -167,7 +167,10 @@ void Error_Handler(void);
 #define CMD_CEA_HV_CURRENT 			        0x43
 #define CMD_CEA_TARGET_HV_VOLTAGE 			0x44
 
-
+#define DISABLED							0x00
+#define ENABLED							    0x01
+#define DISABLE							    0x00
+#define ENABLE							    0x01
 
 
 
@@ -206,6 +209,7 @@ typedef struct
 	uint8_t  hv_digipot_value;				// The value of the digipot - may not always be the most up to date
 	uint16_t hv_targate_value;				// The targate value to reach when referenced against the MAX6911 voltage reading
 	uint16_t board_enable_state;			// The enable state of the board
+	bool 	 hv_enable_state;				// The enable state of the HV pin
 	bool     making_safe_inprogress;        // The board is currently being made safe by ramp down
 } _detector;
 

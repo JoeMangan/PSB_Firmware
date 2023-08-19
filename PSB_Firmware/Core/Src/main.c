@@ -112,19 +112,23 @@ bool i2c_slv_cmd_rx_tx_handle(void);
 uint16_t max6911_read (I2C_HandleTypeDef *hi2c, uint8_t device_addr, uint8_t cmd_msb, uint8_t cmd_lsb);
 bool ijc_detector_init(void);
 bool cea_detector_init(void);
-
-
 void ijc_dssd_ramp_loop(void);
 void cea_dssd_ramp_loop(void);
+
+bool make_ijc_dssd_safe(void);
+bool make_cea_dssd_safe(void);
 // -------------------------
 // GPIO and Board Enables
 // -------------------------
-void ht_enable_set(bool);
-void cea_board_enable_set(bool);
+void ht_cea_enable_set(bool);
+bool ht_cea_enable_get(void);
+void ht_ijc_enable_set(bool);
+bool ht_ijc_enable_get(void);
+bool cea_board_enable_set(bool);
 bool cea_board_enable_get(void);
 void ucd_board_enable_set(bool);
 bool ucd_board_enable_get(void);
-void ijc_board_enable_set(bool);
+bool ijc_board_enable_set(bool);
 bool ijc_board_enable_get(void);
 
 // I2C Slave Stuff
@@ -209,25 +213,29 @@ int main(void)
   // Initialize the system
   i2c_slv_init(); // Initialize the I2C slave module
 
-  //bool ijc_init_status = ijc_detector_init();
 
-  //if(ijc_init_status == EXIT_FAILURE)
-  //{
-//	  while(1);
-//  }
+  // A PROPER INITIALISATION MUST GO HERE!!!
+  //while(1);
 
 
+  bool ijc_init_status = ijc_detector_init();
   bool cea_init_status = cea_detector_init();
+
+
+
+  if(ijc_init_status == EXIT_FAILURE)
+  {
+	  while(1);
+  }
 
   if(cea_init_status == EXIT_FAILURE)
   {
 	  while(1);
   }
 
-  ht_enable_set(GPIO_PIN_RESET);
-
   // Start the timer
   HAL_TIM_Base_Start_IT(&htim2);
+
 
   /* USER CODE END 2 */
 
@@ -235,7 +243,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  //ijc_dssd_ramp_loop();
+	  ijc_dssd_ramp_loop();
 	  cea_dssd_ramp_loop();
 
 	  if (Xfer_Complete ==1)                            // Check for the I2C read complete to have been executed
@@ -249,6 +257,16 @@ int main(void)
 			  Error_Handler();
 		  }
 		  Xfer_Complete =0;
+	  }
+
+	  if(ijc_detector.making_safe_inprogress)
+	  {
+		  // Make the IJC detector safe
+		  make_ijc_dssd_safe();
+	  }
+	  else if (cea_detector.making_safe_inprogress)
+	  {
+		  make_cea_dssd_safe();
 	  }
 
   }
@@ -770,10 +788,32 @@ void max6911_set_ctrl1_register(_max6911_ctrl selector)
 //************************************
 
 // Board enable functions
-void ht_enable_set(bool gpio_state)
+void ht_cea_enable_set(bool gpio_state)
 {
-	HAL_GPIO_WritePin(ENABLE_HT_GPIO_Port, ENABLE_HT_Pin, gpio_state);
+	HAL_GPIO_WritePin(ENABLE_HT_CEA_DSSD_GPIO_Port, ENABLE_HT_CEA_DSSD_Pin, gpio_state);
+	cea_detector.hv_enable_state  = gpio_state;
+
 }
+
+bool ht_cea_enable_get(void)
+{
+	cea_detector.hv_enable_state = HAL_GPIO_ReadPin(ENABLE_HT_CEA_DSSD_GPIO_Port, ENABLE_HT_CEA_DSSD_Pin);
+	return(cea_detector.hv_enable_state);
+}
+
+void ht_ijc_enable_set(bool gpio_state)
+{
+	HAL_GPIO_WritePin(ENABLE_HT_IJC_DSSD_GPIO_Port, ENABLE_HT_IJC_DSSD_Pin, gpio_state);
+	ijc_detector.hv_enable_state  = gpio_state;
+
+}
+
+bool ht_ijc_enable_get(void)
+{
+	ijc_detector.hv_enable_state = HAL_GPIO_ReadPin(ENABLE_HT_IJC_DSSD_GPIO_Port, ENABLE_HT_IJC_DSSD_Pin);
+	return(ijc_detector.hv_enable_state);
+}
+
 
 void ijc_dssd_ramp_loop(void)
 {
@@ -898,6 +938,8 @@ void cea_dssd_ramp_loop(void)
 	}
 }
 
+
+
 bool make_ijc_dssd_safe(void)
 {
 	// To make the IJCLab DSSD detector safe
@@ -930,6 +972,20 @@ bool make_ijc_dssd_safe(void)
 			status = EXIT_FAILURE;
 			return(status);
 		}
+		else if (status == EXIT_SUCCESS && ijc_detector.hv_digipot_value == 0)
+		{
+			// Board is enabled but the digipot is in the 0 position
+			ijc_detector.making_safe_inprogress = false;
+			// The digipot is in a 0 state - the make safe was successful
+
+			// Disable HV and disable the board
+			ht_ijc_enable_set(GPIO_PIN_RESET);          							     // Reset the IJC HV SUPPLY
+			HAL_GPIO_WritePin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin, GPIO_PIN_RESET); // Disable the IJC Board
+			ijc_detector.board_enable_state = 0;
+
+			status = EXIT_SUCCESS;
+			return(status);
+		}
 		else if (status == EXIT_FAILURE)
 		{
 			// Failed to make communication to the digipot device
@@ -939,16 +995,17 @@ bool make_ijc_dssd_safe(void)
 		}
 		else
 		{
-			// Board is enabled but the digipot is in the 0 position
 			ijc_detector.making_safe_inprogress = false;
-			// The digipot is in a 0 state - the make safe was successful
-			status = EXIT_SUCCESS;
+			status = EXIT_FAILURE;
 			return(status);
 		}
 	}
 	else
 	{
 		ijc_detector.making_safe_inprogress = false;
+		ht_ijc_enable_set(GPIO_PIN_RESET);          							     // Reset the IJC HV SUPPLY
+		HAL_GPIO_WritePin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin, GPIO_PIN_RESET); // Disable the IJC Board
+		ijc_detector.board_enable_state = 0;
 		// If board is disabled the board is already in a safe state
 		status = EXIT_SUCCESS;
 		return(status);
@@ -956,6 +1013,81 @@ bool make_ijc_dssd_safe(void)
 
 }
 
+
+
+bool make_cea_dssd_safe(void)
+{
+	// To make the CEA DSSD detector safe
+
+	bool status = EXIT_SUCCESS;
+	bool board_state;
+
+	// Get the state of the CEA detector board
+	board_state = cea_board_enable_get();
+
+	if(board_state == true)
+	{
+		// If the detector board is enabled - Make it safe from here by ramping down if necessary
+
+		// Get the current digipot value
+		status = cea_i2c_read(ADDR_CEA_DIGIPOT, &cea_detector.hv_digipot_value, 1);
+
+		if(status == EXIT_SUCCESS && cea_detector.hv_digipot_value > 0)
+		{
+			// Begin ramp down
+			// ----------------------------------------------------------------------------
+			// Must enable the ramp enable flag
+			cea_detector.hv_loop_enable = true;
+
+			// Must set the target value to 0
+			cea_detector.hv_targate_value = 0;
+
+			// Set the flag to indicate that the CEA board is currently being made safe
+			cea_detector.making_safe_inprogress = true;
+			status = EXIT_FAILURE;
+			return(status);
+		}
+		else if (status == EXIT_SUCCESS && cea_detector.hv_digipot_value == 0)
+		{
+			// Board is enabled but the digipot is in the 0 position
+			cea_detector.making_safe_inprogress = false;
+			// The digipot is in a 0 state - the make safe was successful
+
+			// Disable HV and disable the board
+			ht_cea_enable_set(GPIO_PIN_RESET);          							     // Reset the CEA HV SUPPLY
+			HAL_GPIO_WritePin(ENABLE_3_CEA_GPIO_Port, ENABLE_3_CEA_Pin, GPIO_PIN_RESET); // Disable the CEA Board
+			cea_detector.board_enable_state = 0;
+
+			status = EXIT_SUCCESS;
+			return(status);
+		}
+		else if (status == EXIT_FAILURE)
+		{
+			// Failed to make communication to the digipot device
+			cea_detector.making_safe_inprogress = false;
+			status = EXIT_FAILURE;
+			return(status);
+		}
+		else
+		{
+			cea_detector.making_safe_inprogress = false;
+			status = EXIT_FAILURE;
+			return(status);
+		}
+	}
+	else
+	{
+		cea_detector.making_safe_inprogress = false;
+		// If board is disabled the board is already in a safe state
+		ht_cea_enable_set(GPIO_PIN_RESET);          							     // Reset the CEA HV SUPPLY
+		HAL_GPIO_WritePin(ENABLE_3_CEA_GPIO_Port, ENABLE_3_CEA_Pin, GPIO_PIN_RESET); // Disable the CEA Board
+		cea_detector.board_enable_state = 0;							 // Set the board state in the struct
+
+		status = EXIT_SUCCESS;
+		return(status);
+	}
+
+}
 
 //************************************
 //            UCD PSB
@@ -1057,11 +1189,12 @@ bool ijc_detector_init(void)
 	ijc_detector.hv_digipot_value 	  = 0;
 	ijc_detector.hv_targate_value 	  = 0;
 	ijc_detector.board_enable_state   = 0;
+	ijc_detector.hv_enable_state	  = 0;
 	ijc_detector.hv_loop_enable 	  = 1;
-
+	ijc_detector.making_safe_inprogress = 0;
 
 	// Configure the board enable state
-	ht_enable_set(GPIO_PIN_RESET);
+	ht_ijc_enable_set(GPIO_PIN_RESET);
 	ijc_board_enable_set(GPIO_PIN_SET);
 
 	HAL_Delay(100);
@@ -1102,10 +1235,12 @@ bool cea_detector_init(void)
 	cea_detector.hv_digipot_value 	  = 0;
 	cea_detector.hv_targate_value 	  = 0;
 	cea_detector.board_enable_state   = 0;
+	cea_detector.hv_enable_state	  = 0;
 	cea_detector.hv_loop_enable 	  = 1;
+	cea_detector.making_safe_inprogress = 0;
 
 	// Configure the board enable state
-	ht_enable_set(GPIO_PIN_RESET);
+	ht_cea_enable_set(GPIO_PIN_RESET);
 	cea_board_enable_set(GPIO_PIN_SET);
 
 	HAL_Delay(100);
@@ -1130,13 +1265,51 @@ bool cea_detector_init(void)
 }
 
 
-
 // Board enable functions
-void ijc_board_enable_set(bool gpio_state)
+bool ijc_board_enable_set(bool gpio_state)
 {
-	HAL_GPIO_WritePin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin, gpio_state);
-	ijc_detector.board_enable_state = gpio_state;
+	HAL_StatusTypeDef i2c_digipot_status;
+	uint8_t tx_data[2] = {0x00, 0x00};
+
+	bool ijc_board_state = ijc_board_enable_get();								 // Get the current state of the board
+	if (gpio_state == ENABLE && ijc_board_state == DISABLED) 					 // If the board is disabled
+	{
+		ht_ijc_enable_set(GPIO_PIN_RESET);          							 // Reset the ijc HV SUPPLY
+		HAL_GPIO_WritePin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin, gpio_state); // Enable the ijc Board
+		ijc_detector.board_enable_state = gpio_state;							 // Set the board state in the struct
+
+		// Set the digipot to 0
+		ijc_detector.hv_digipot_value = 0;
+		i2c_digipot_status = ijc_i2c_write_read(ADDR_IJC_DIGIPOT, &tx_data[0], 2, &ijc_detector.hv_digipot_value, 1);
+
+		if(i2c_digipot_status == HAL_OK && ijc_detector.hv_digipot_value == 0)
+		{
+			// Enable the HV Supply
+			ht_ijc_enable_set(GPIO_PIN_SET);          							 // Reset the IJC HV SUPPLY
+			return(EXIT_SUCCESS);
+		}
+		else
+		{
+			HAL_GPIO_WritePin(ENABLE_2_IJC_GPIO_Port, ENABLE_2_IJC_Pin, 0);  // Enable the ijc Board
+			ijc_detector.board_enable_state = 0;							 // Set the board state in the struct
+
+			// Return fail
+			return(EXIT_FAILURE);
+		}
+	}
+	else if (gpio_state == DISABLE && ijc_board_state == ENABLED) 				 // If the board is enabled
+	{
+		// Enable the ijc loop and set the target value to 0
+		// Have a flag in the main loop then disable the HV and disable the board once the digipot is at 0
+		ijc_detector.making_safe_inprogress = true;
+		return(EXIT_SUCCESS);
+	}
+	else
+	{
+		return(EXIT_SUCCESS);
+	}
 }
+
 
 bool ijc_board_enable_get(void)
 {
@@ -1209,10 +1382,48 @@ HAL_StatusTypeDef ijc_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 //************************************
 
 // Board enable functions
-void cea_board_enable_set(bool gpio_state)
+bool cea_board_enable_set(bool gpio_state)
 {
-	HAL_GPIO_WritePin(ENABLE_3_CEA_GPIO_Port, ENABLE_3_CEA_Pin, gpio_state);
-	cea_detector.board_enable_state = gpio_state;
+	HAL_StatusTypeDef i2c_digipot_status;
+	uint8_t tx_data[2] = {0x00, 0x00};
+
+	bool cea_board_state = cea_board_enable_get();								 // Get the current state of the board
+	if (gpio_state == ENABLE && cea_board_state == DISABLED) 					 // If the board is disabled
+	{
+		ht_cea_enable_set(GPIO_PIN_RESET);          							 // Reset the CEA HV SUPPLY
+		HAL_GPIO_WritePin(ENABLE_3_CEA_GPIO_Port, ENABLE_3_CEA_Pin, gpio_state); // Enable the CEA Board
+		cea_detector.board_enable_state = gpio_state;							 // Set the board state in the struct
+
+		// Set the digipot to 0
+		cea_detector.hv_digipot_value = 0;
+		i2c_digipot_status = cea_i2c_write_read(ADDR_CEA_DIGIPOT, &tx_data[0], 2, &cea_detector.hv_digipot_value, 1);
+
+		if(i2c_digipot_status == HAL_OK && cea_detector.hv_digipot_value == 0)
+		{
+			// Enable the HV Supply
+			ht_cea_enable_set(GPIO_PIN_SET);          							 // Reset the CEA HV SUPPLY
+			return(EXIT_SUCCESS);
+		}
+		else
+		{
+			HAL_GPIO_WritePin(ENABLE_3_CEA_GPIO_Port, ENABLE_3_CEA_Pin, 0); // Enable the CEA Board
+			cea_detector.board_enable_state = 0;							 // Set the board state in the struct
+
+			// Return fail
+			return(EXIT_FAILURE);
+		}
+	}
+	else if (gpio_state == DISABLE && cea_board_state == ENABLED) 				 // If the board is enabled
+	{
+		// Enable the CEA loop and set the target value to 0
+		// Have a flag in the main loop then disable the HV and disable the board once the digipot is at 0
+		cea_detector.making_safe_inprogress = true;
+		return(EXIT_SUCCESS);
+	}
+	else
+	{
+		return(EXIT_SUCCESS);
+	}
 }
 
 bool cea_board_enable_get(void)
@@ -1413,8 +1624,17 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 				// Write the state of the enable pin
 				if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_SET)
 				{
-					cea_board_enable_set(GPIO_PIN_SET);								// Set the state of the pin
-					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					bool enable_status = cea_board_enable_set(GPIO_PIN_SET);								// Set the state of the pin
+					if(enable_status == EXIT_SUCCESS)
+					{
+						i2c_slv_tx.data = CMD_SUCCESS_RESP;
+						status =  EXIT_SUCCESS;
+					}
+					else if (enable_status == EXIT_FAILURE)
+					{
+						status =  EXIT_FAILURE;
+						i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+					}
 					return(status);
 				}
 				else if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_RESET)
@@ -1550,8 +1770,17 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 				// Write the state of the enable pin
 				if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_SET)
 				{
-					ijc_board_enable_set(GPIO_PIN_SET);								// Set the state of the pin
-					i2c_slv_tx.data = CMD_SUCCESS_RESP;
+					bool enable_status = ijc_board_enable_set(GPIO_PIN_SET);								// Set the state of the pin
+					if(enable_status == EXIT_SUCCESS)
+					{
+						i2c_slv_tx.data = CMD_SUCCESS_RESP;
+						status =  EXIT_SUCCESS;
+					}
+					else if (enable_status == EXIT_FAILURE)
+					{
+						status =  EXIT_FAILURE;
+						i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+					}
 					return(status);
 				}
 				else if(i2c_slv_rx.bytes.data_byte_lsb == GPIO_PIN_RESET)
