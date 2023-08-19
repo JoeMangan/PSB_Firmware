@@ -109,6 +109,9 @@ void Error_Handler(void);
 #define UCD_DAC_MBIAS_1_INDEX   0x12
 #define UCD_DAC_MBIAS_2_INDEX   0x14
 
+
+#define ADDR_PRESS_TEMP				  0x77<<1
+
 // Dev addrs on the IJC board
 #define ADDR_IJC_MAX9611_1_5    	  0b11100000    // The 1.5V supply (U11 on the schematic)
 #define ADDR_IJC_MAX9611_2      	  0b11100010    // The -2V supply  (U12 on the schematic)

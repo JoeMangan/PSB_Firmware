@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "max9611.h"
+#include "MS5611.h"
 #include "stdbool.h"
 #include "stdio.h"
 #include "string.h"
@@ -91,6 +92,7 @@ uint8_t i2c_rx_buffer[RXBUFFERSIZE];				// Recieve buffer
 _i2c_slv_rx i2c_slv_rx;                             // A union struct to hold the I2C slv RX
 _i2c_slv_tx i2c_slv_tx;                             // A union struct to hold the I2C slv tx
 _max6911_ctrl selector;
+//struct meas measurement;         					// A structure for storing the temp pressure measurement data
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -114,6 +116,19 @@ bool ijc_detector_init(void);
 bool cea_detector_init(void);
 void ijc_dssd_ramp_loop(void);
 void cea_dssd_ramp_loop(void);
+
+
+bool i2c_pt_reset(I2C_HandleTypeDef *hi2c);
+bool i2c_pt_prom_read_all(I2C_HandleTypeDef *hi2c, uint16_t *r_buffer);
+bool i2c_pt_prom_read(I2C_HandleTypeDef *hi2c, uint8_t prom_index, uint8_t *r_buffer);
+bool i2c_pt_d1_pressure_conversion(I2C_HandleTypeDef *hi2c, uint8_t osr);
+bool i2c_pt_d2_temperature_conversion(I2C_HandleTypeDef *hi2c, uint8_t osr);
+bool i2c_pt_measure_d2_temperature(I2C_HandleTypeDef *hi2c, uint8_t osr, uint32_t *r_buffer);
+bool i2c_pt_measure_d1_pressure(I2C_HandleTypeDef *hi2c, uint8_t osr, uint32_t *r_buffer);
+bool i2c_pt_adc_read_sequence(I2C_HandleTypeDef *hi2c, uint32_t *r_buffer);
+bool run_complete_readout(struct meas measurement);
+
+
 
 bool make_ijc_dssd_safe(void);
 bool make_cea_dssd_safe(void);
@@ -217,6 +232,14 @@ int main(void)
   // A PROPER INITIALISATION MUST GO HERE!!!
   //while(1);
 
+
+  struct meas measurement;         // A structure for storing the measurement data
+  while(1)
+  {
+
+	  run_complete_readout(measurement);
+	  HAL_Delay(500);
+  }
 
   bool ijc_init_status = ijc_detector_init();
   bool cea_init_status = cea_detector_init();
@@ -1512,6 +1535,215 @@ HAL_StatusTypeDef cea_i2c_write_read(uint8_t dev_addr, uint8_t *out_ptr, uint16_
 			// Disable the enable pin
 			// return(0)
 //}
+
+
+
+
+
+
+//************************************
+//            TEMP PRESSURE
+//************************************
+
+
+
+
+bool i2c_pt_reset(I2C_HandleTypeDef *hi2c)
+{
+    // I2C command to reset the MS5611 module
+    // A 3 ms delay should be placed after reset command is complete
+    bool status = 0;
+    uint8_t cmd = CMD_RESET;
+
+    // Send the command
+    status = i2c_write(hi2c, ADDR_PRESS_TEMP, &cmd, 1);
+    HAL_Delay(3);
+
+    return(status);
+}
+
+bool i2c_pt_prom_read_all(I2C_HandleTypeDef *hi2c, uint16_t *r_buffer)
+{
+
+    // Define a buffer to temporarily hold the PROM register contents
+    uint8_t single_reg_buffer[2] = {0};
+    bool status = 0;
+
+    // Read all the prom values and store them in an array
+    for (int i = 0; i < 8; i++)
+    {
+    	// Clycle through each index and store the PROM reg in the temp buffer
+    	status = i2c_pt_prom_read(hi2c, i, &single_reg_buffer[0]);
+
+		if(status == 0)
+		{
+				// Unload the temp buffer contents to the r_buffer and increment the pointer to the next address
+				*r_buffer  = single_reg_buffer[0]<<8 | single_reg_buffer[1];
+				r_buffer++;
+		}
+    }
+    return(0);
+}
+
+bool i2c_pt_prom_read(I2C_HandleTypeDef *hi2c, uint8_t prom_index, uint8_t *r_buffer)
+{
+    // Read a given prom address where the index refers to the LSB of the command
+    // i.e. prom_index = 4 corrosponds to address 0xA4
+
+    bool status = 0;
+
+    // Generate the prom address
+    uint8_t prom_address = (CMD_PROM_READ + (prom_index*2));
+
+    // Send the command
+    status = i2c_write_read(hi2c, ADDR_PRESS_TEMP, &prom_address, 1, r_buffer, 2);
+
+
+    return(status);
+}
+
+bool i2c_pt_d1_pressure_conversion(I2C_HandleTypeDef *hi2c, uint8_t osr)
+{
+
+    // Perform the I2C conversion for D1 - pressure sensor
+    bool status = 0;
+    uint8_t command;
+
+    switch(osr)
+    {
+        case OSR_256:
+        	command = CMD_CONVERT_D1_OSR_256;
+            break;
+        case OSR_512:
+        	command = CMD_CONVERT_D1_OSR_512;
+            break;
+        case OSR_1024:
+        	command = CMD_CONVERT_D1_OSR_1024;
+            break;
+        case OSR_2048:
+        	command = CMD_CONVERT_D1_OSR_2048;
+            break;
+        case OSR_4096:
+        	command = CMD_CONVERT_D1_OSR_4096;
+            break;
+        default:
+            break;
+    }
+
+    // Send the command
+    status = i2c_write(hi2c, ADDR_PRESS_TEMP, &command, 1);
+
+    // Around 10ms for conversion
+    HAL_Delay(10);
+
+    return(status);
+}
+
+bool i2c_pt_d2_temperature_conversion(I2C_HandleTypeDef *hi2c, uint8_t osr)
+{
+
+    // Perform the I2C conversion for D2 - temperature sensor
+    bool status = 0;
+    uint8_t command;
+
+    switch(osr)
+    {
+        case OSR_256:
+            command = CMD_CONVERT_D2_OSR_256;
+            break;
+        case OSR_512:
+            command = CMD_CONVERT_D2_OSR_512;
+            break;
+        case OSR_1024:
+            command = CMD_CONVERT_D2_OSR_1024;
+            break;
+        case OSR_2048:
+            command = CMD_CONVERT_D2_OSR_2048;
+            break;
+        case OSR_4096:
+            command = CMD_CONVERT_D2_OSR_4096;
+            break;
+        default:
+            break;
+    }
+
+    // Send the command
+    status = i2c_write(hi2c, ADDR_PRESS_TEMP, &command, 1);
+
+    HAL_Delay(10);
+
+    return(status);
+}
+
+
+bool i2c_pt_measure_d2_temperature(I2C_HandleTypeDef *hi2c, uint8_t osr, uint32_t *r_buffer)
+{
+
+    // Should check that the ADC has actully measured something
+    bool status = 0;
+
+    // Send the command to initiate the conversion
+    if(status == 0) status = i2c_pt_d2_temperature_conversion(hi2c, osr);
+    // Read the ADC
+    if(status == 0) status = i2c_pt_adc_read_sequence(hi2c, r_buffer);
+
+    return(status);
+}
+
+
+bool i2c_pt_measure_d1_pressure(I2C_HandleTypeDef *hi2c, uint8_t osr, uint32_t *r_buffer)
+{
+
+    // Should check that the ADC has actully measured something
+    bool status = 0;
+
+    // Send the command to initiate the conversion
+    if(status == 0) status = i2c_pt_d1_pressure_conversion(hi2c, osr);
+    // Read the ADC
+    if(status == 0) status = i2c_pt_adc_read_sequence(hi2c, r_buffer);
+
+    return(status);
+}
+
+
+bool i2c_pt_adc_read_sequence(I2C_HandleTypeDef *hi2c, uint32_t *r_buffer)
+{
+    // Need to check the number of returned bytes is correct
+    bool status = 0;
+    uint8_t command = CMD_ADC_READ;
+    uint8_t number_of_bytes = 3;
+    uint8_t read_buffer[3] = {0};
+
+
+    // Send the command
+
+    status = i2c_write_read(hi2c, ADDR_PRESS_TEMP, &command, 1, &read_buffer[0], number_of_bytes);
+
+    //*r_buffer = *r_buffer | ((read_buffer[0]<<16 | read_buffer[1]<<8 | read_buffer[2]));
+    *r_buffer = ((read_buffer[0]<<16 | read_buffer[1]<<8 | read_buffer[2]));
+
+    return(status);
+}
+
+
+bool run_complete_readout(struct meas measurement)
+{
+    bool status = EXIT_SUCCESS;      // A status record of the operation
+
+    // Attempt to reset the I2C device - add a delay at the end to allow the device to reset
+    if(status == 0) status = i2c_pt_reset(&hi2c2);
+
+    // Attempt to read into memory all the I2C prom calibration bytes
+    if(status == 0) status = i2c_pt_prom_read_all(&hi2c2, &measurement.prom_regs[0]);
+
+    // Attempt conversion sequence for pressure at OSR 4096 with conversion duration <9.04ms
+    if(status == 0) status = i2c_pt_measure_d1_pressure(&hi2c2, OSR_4096, &measurement.uncomp_press);
+
+    // Attempt conversion sequence for temperature at OSR 4096 with conversion duration <9.04ms
+    if(status == 0) status = i2c_pt_measure_d2_temperature(&hi2c2, OSR_4096, &measurement.uncomp_temp);
+
+    return(status);
+}
 
 
 //************************************
