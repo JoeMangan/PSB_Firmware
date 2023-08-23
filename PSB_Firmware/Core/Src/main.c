@@ -255,6 +255,12 @@ int main(void)
   // Start the timer
   HAL_TIM_Base_Start_IT(&htim2);
 
+  // Configure the timeout for the I2C Bus 1
+  hi2c1.Instance->TIMEOUTR = 0x0F00; 					// Set the timeout value
+  hi2c1.Instance->TIMEOUTR |= I2C_TIMEOUTR_TEXTEN; 		// Enable TEXTEN
+  hi2c1.Instance->TIMEOUTR |= I2C_TIMEOUTR_TIMOUTEN;    // Enable the timeout TIMOUTEN
+  hi2c1.Instance->CR1 |= I2C_CR1_ERRIE;					// Enable interrupts on CR1 ERR - This does not seem to work correctly
+
 
   /* USER CODE END 2 */
 
@@ -264,6 +270,10 @@ int main(void)
   {
 	  ijc_dssd_ramp_loop();
 	  cea_dssd_ramp_loop();
+
+	  //HAL_I2C_StateTypeDef status_state = HAL_I2C_GetState(&hi2c1);
+	  //HAL_I2C_StateTypeDef status_mode  = HAL_I2C_GetMode(&hi2c1);
+	  //HAL_I2C_StateTypeDef status_error = HAL_I2C_GetError(&hi2c1);
 
 	  if (Xfer_Complete ==1)                            // Check for the I2C read complete to have been executed
 	  {
@@ -294,6 +304,20 @@ int main(void)
 		  general_loop_flg = false;
 	  }
 
+	  if (I2C1->ISR & I2C_FLAG_TIMEOUT)
+	  {
+
+		// Perform I2C software reset
+		hi2c1.Instance->CR1 &= ~I2C_CR1_PE;  			    // Write PE=0
+		HAL_Delay(100);
+		while (hi2c1.Instance->CR1 & I2C_CR1_PE) {} 		// Wait until PE bit becomes 0 (waiting is optional but recommended)
+		HAL_Delay(100);
+		hi2c1.Instance->CR1 |= I2C_CR1_PE;                  // Write PE=1
+		HAL_Delay(100);
+		HAL_I2C_EnableListen_IT(&hi2c1);
+
+	  }
+
   }
     /* USER CODE END WHILE */
 
@@ -301,6 +325,7 @@ int main(void)
 
   /* USER CODE END 3 */
 }
+
 
 /**
   * @brief System Clock Configuration
@@ -2729,6 +2754,7 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 	}
 
   }
+  //Xfer_Complete =1;
 
 }
 
@@ -2760,7 +2786,14 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *I2cHandle)
   {
     Error_Handler();
   }
+  // This addition is harmless but does nothing
+  if (I2cHandle->ErrorCode == HAL_I2C_ERROR_TIMEOUT) {
+      HAL_Delay(10);
+	  //I2C_TimeoutInterruptHandler();
+  }
+
 }
+
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 {
@@ -2784,9 +2817,14 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+  /*
   while (1)
   {
+	  uint32_t error = HAL_I2C_GetError(&hi2c1);
+	  error ++;
+
   }
+  */
   /* USER CODE END Error_Handler_Debug */
 }
 
