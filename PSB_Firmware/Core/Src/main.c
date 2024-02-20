@@ -309,10 +309,19 @@ int main(void)
 
 		// Perform I2C software reset
 		hi2c1.Instance->CR1 &= ~I2C_CR1_PE;  			    // Write PE=0
-		HAL_Delay(100);
+		// Added after flight
+		hi2c2.Instance->CR1 &= ~I2C_CR1_PE;  			    // Write PE=0
+		hi2c3.Instance->CR1 &= ~I2C_CR1_PE;  			    // Write PE=0
+
+		HAL_Delay(500);
 		while (hi2c1.Instance->CR1 & I2C_CR1_PE) {} 		// Wait until PE bit becomes 0 (waiting is optional but recommended)
-		HAL_Delay(100);
+		HAL_Delay(500);
+
 		hi2c1.Instance->CR1 |= I2C_CR1_PE;                  // Write PE=1
+		// Added after the flight
+		hi2c2.Instance->CR1 |= I2C_CR1_PE;                  // Write PE=1
+		hi2c3.Instance->CR1 |= I2C_CR1_PE;                  // Write PE=1
+
 		HAL_Delay(100);
 		HAL_I2C_EnableListen_IT(&hi2c1);
 
@@ -325,7 +334,6 @@ int main(void)
 
   /* USER CODE END 3 */
 }
-
 
 /**
   * @brief System Clock Configuration
@@ -541,7 +549,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 1000;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 40000;
+  htim2.Init.Period = 80000;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -2524,6 +2532,24 @@ bool i2c_slv_cmd_rx_tx_handle(void)
 			}
 			break;
 		}
+    	// ---------------------------------------------------------------------
+		// ---------------------------------------------------------------------
+    	case(CMD_IJC_HV_DIGIPOT_SETTING):
+		{
+			if(i2c_slv_rx.bytes.rw_state == CMD_READ)
+			{
+				i2c_slv_tx.data = ijc_detector.hv_digipot_value;        // Prepare the date into the transmit
+
+				return(status);
+			}
+			else if (i2c_slv_rx.bytes.rw_state == CMD_WRITE)
+			{
+				i2c_slv_tx.data = CMD_FAIL_OP_RESP;
+				status =  EXIT_FAILURE;
+				return(status);
+			}
+			break;
+		}
 
        	// ---------------------------------------------------------------------
     	// ---------------------------------------------------------------------
@@ -2803,7 +2829,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 	ijc_detector.ramp_flag = true;
 	cea_detector.ramp_flag = true;
 	general_loop_flg = true;
-	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
+	//HAL_GPIO_WritePin(TIMING_PIN_GPIO_Port, TIMING_PIN_Pin, GPIO_PIN_SET);
+	//HAL_GPIO_WritePin(TIMING_PIN_GPIO_Port, TIMING_PIN_Pin, GPIO_PIN_RESET);
+	//HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
 }
 
 /* USER CODE END 4 */

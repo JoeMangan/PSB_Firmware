@@ -186,6 +186,7 @@ void Error_Handler(void);
 #define CMD_IJC_1_5_CURRENT 			    0x66
 #define CMD_IJC_2_VOLTAGE 			        0x67
 #define CMD_IJC_2_CURRENT 			        0x68
+#define CMD_IJC_HV_DIGIPOT_SETTING			0x69
 // ----------------------------------------------
 // CEA Detector Commands
 #define CMD_CEA_ENABLE 						0x40
